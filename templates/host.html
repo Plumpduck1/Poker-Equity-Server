@@ -11,7 +11,7 @@ body { font-family: monospace; line-height: 1.6; }
 .player-row { margin-bottom: 10px; display: flex; justify-content: space-between; }
 .stage-board { margin-bottom: 10px; }
 h3 { margin-bottom: 5px; text-align: center; }
-.equity-column { min-width: 120px; }
+.equity-column { min-width: 150px; }
 form { margin-bottom: 20px; }
 button { margin-right: 5px; }
 </style>
@@ -27,7 +27,7 @@ button { margin-right: 5px; }
 </form>
 
 <div class="container">
-    <!-- Column 1: Player Hands & Positions -->
+    <!-- Players & Hands -->
     <div class="column">
         <h3>Players</h3>
         {% for player, eq in player_equity_pairs %}
@@ -42,7 +42,7 @@ button { margin-right: 5px; }
         {% endfor %}
     </div>
 
-    <!-- Column 2: Board -->
+    <!-- Board -->
     <div class="column">
         <h3>Board</h3>
         <div class="stage-board">
@@ -52,16 +52,16 @@ button { margin-right: 5px; }
         </div>
     </div>
 
-    <!-- Column 3: Equities -->
+    <!-- Equities & Hand Descriptions -->
     <div class="column equity-column">
-        <h3>Equities</h3>
+        <h3>Equities & Hands</h3>
         {% for player, eq in player_equity_pairs %}
             <div class="player-row">
-                <div style="width: 100px;">{{ player }}</div>
-                <div>{{ eq|int }}%</div>
+                <div style="width:120px;">{{ player }}</div>
+                <div>{{ eq|round(1) }}% — {{ game.hand_ranks[player] }}</div>
             </div>
         {% endfor %}
-        <div>Tie: {{ game.tie|int }}%</div>
+        <div>Tie: {{ game.tie|round(1) }}%</div>
     </div>
 </div>
 </body>
