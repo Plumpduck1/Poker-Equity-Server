@@ -1,5 +1,5 @@
-from flask import Flask, render_template, request, redirect, os
-import random
+from flask import Flask, render_template, request, redirect
+import random, os
 from equity import calculate_equity_multi
 
 app = Flask(__name__)
