@@ -2,42 +2,284 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Poker Equity Calculator - Host</title>
+<title>Host – Poker Control</title>
+
 <style>
-body { font-family: monospace; line-height: 1.6; }
-.cards img { margin-right: 2px; vertical-align: middle; }
-.container { display: flex; gap: 20px; align-items: flex-start; }
-.column { display: flex; flex-direction: column; min-width: 150px; }
-.player-row { margin-bottom: 10px; display: flex; justify-content: space-between; }
-.stage-board { margin-bottom: 10px; }
-h3 { margin-bottom: 5px; text-align: center; }
-.equity-column { min-width: 150px; }
-form { margin-bottom: 20px; }
-button { margin-right: 5px; }
+:root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --panel-2: #1f2430;
+    --border: #2c3240;
+    --text: #e6e6e6;
+    --muted: #9aa4b2;
+    --accent: #4da3ff;
+    --good: #2ecc71;
+    --warn: #f39c12;
+}
+
+body {
+    margin: 0;
+    padding: 24px;
+    font-family: system-ui, monospace;
+    background: var(--bg);
+    color: var(--text);
+}
+
+/* ---------- HEADERS ---------- */
+
+h1 {
+    text-align: center;
+    margin-bottom: 18px;
+    font-weight: 600;
+}
+
+h3 {
+    margin: 0 0 10px 0;
+    text-align: center;
+    font-weight: 600;
+    color: var(--accent);
+}
+
+/* ---------- LAYOUT ---------- */
+
+.panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 14px;
+    margin-bottom: 16px;
+}
+
+.container {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr 1.4fr;
+    gap: 20px;
+    align-items: start;
+}
+
+.column {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    padding: 12px;
+}
+
+/* ---------- STATUS ---------- */
+
+.status-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    text-align: center;
+}
+
+.status-box {
+    background: #12151c;
+    border: 1px solid var(--border);
+    padding: 8px;
+}
+
+.status-label {
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.status-value {
+    font-weight: 600;
+}
+
+/* ---------- CONTROLS ---------- */
+
+.controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+}
+
+button {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    background: #202634;
+    color: var(--text);
+    font-family: inherit;
+    cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+    background: #2a3245;
+}
+
+button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.primary { border-color: var(--accent); }
+.success { border-color: var(--good); }
+.warning { border-color: var(--warn); }
+
+/* ---------- OVERRIDE ---------- */
+
+.override {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+}
+
+select {
+    background: #202634;
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 6px;
+}
+
+/* ---------- TABLE ---------- */
+
+.player-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.player-pos {
+    color: var(--muted);
+    margin-right: 4px;
+}
+
+.cards img {
+    width: 44px;
+    margin-left: 2px;
+}
+
+/* ---------- EQUITY ---------- */
+
+.eq-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+}
+
+.muted {
+    color: var(--muted);
+    font-style: italic;
+}
 </style>
 </head>
+
 <body>
-<h1>Host View - Poker Equity Calculator</h1>
 
-<form method="POST">
-    <button name="action" value="flop">Deal Flop</button>
-    <button name="action" value="turn">Deal Turn</button>
-    <button name="action" value="river">Deal River</button>
-    <button name="action" value="reset">Reset Game / Rotate Positions</button>
-</form>
+<h1>Host Control – Poker Equity</h1>
 
+<!-- ================= STATUS ================= -->
+<div class="panel">
+    <div class="status-grid">
+        <div class="status-box">
+            <div class="status-label">Phase</div>
+            <div class="status-value">{{ game.phase }}</div>
+        </div>
+        <div class="status-box">
+            <div class="status-label">Button (BTN)</div>
+            <div class="status-value">{{ game.players[game.button_index] }}</div>
+        </div>
+        <div class="status-box">
+            <div class="status-label">Small Blind</div>
+            <div class="status-value">{{ game.players[(game.button_index + 1) % 6] }}</div>
+        </div>
+        <div class="status-box">
+            <div class="status-label">Big Blind</div>
+            <div class="status-value">{{ game.players[(game.button_index + 2) % 6] }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- ================= CONTROLS ================= -->
+<div class="panel controls">
+    <form method="POST">
+        <button class="warning" name="action" value="new_hand">
+            New Hand
+        </button>
+
+        <button class="primary" name="action" value="scan_deck"
+            {% if game.phase != "WAITING" %}disabled{% endif %}>
+            Scan Deck
+        </button>
+
+        <button class="success" name="action" value="deal_hole"
+            {% if game.phase != "WAITING" or not game.deck %}disabled{% endif %}>
+            Deal Hole Cards
+        </button>
+
+        <button class="primary" name="action" value="next_street"
+            {% if game.phase not in ["PREFLOP","FLOP","TURN"] %}disabled{% endif %}>
+            Next Street
+        </button>
+    </form>
+</div>
+
+<!-- ================= DEALER PRIVACY ================= -->
+<div class="panel">
+    <form method="POST" style="text-align:center;">
+        <button name="toggle_privacy"
+                class="{% if game.hide_equity %}warning{% else %}success{% endif %}">
+            {% if game.hide_equity %}
+                🔒 Dealer Privacy ON (Equities Hidden)
+            {% else %}
+                👁 Show Equities to Dealer
+            {% endif %}
+        </button>
+    </form>
+    <div class="muted" style="text-align:center; margin-top:6px;">
+        Use when dealer should not see hand strength or equity
+    </div>
+</div>
+
+
+<!-- ================= OVERRIDE ================= -->
+<div class="panel">
+    <form method="POST" class="override">
+        <strong>Manual BTN Override:</strong>
+        <select name="set_btn">
+            {% for p in game.players %}
+                <option value="{{ loop.index0 }}"
+                    {% if loop.index0 == game.button_index %}selected{% endif %}>
+                    {{ p }}
+                </option>
+            {% endfor %}
+        </select>
+        <button>Apply</button>
+    </form>
+    <div class="muted" style="text-align:center; margin-top:6px;">
+        Use only for misdeals or floor rulings
+    </div>
+</div>
+
+<!-- ================= TABLE ================= -->
 <div class="container">
-    <!-- Players & Hands -->
+
+    <!-- Players -->
     <div class="column">
         <h3>Players</h3>
         {% for player, eq in player_equity_pairs %}
             <div class="player-row">
-                <div style="width: 100px;"><strong>{{ game.positions[player] }} ({{ player }})</strong></div>
+                <div>
+                    <span class="player-pos">{{ positions[player] }}</span>
+                    <strong>{{ player }}</strong>
+                </div>
                 <span class="cards">
-                    {% for c in game.hands[player] %}
-                        <img src="{{ url_for('static', filename='cards/' ~ c ~ '.png') }}" width="50">
-                    {% endfor %}
+                    {% if game.hide_equity %}
+                        <span class="muted">🔒</span>
+                    {% else %}
+                        {% if game.hands.get(player) %}
+                            {% for c in game.hands[player] %}
+                                <img src="{{ url_for('static', filename='cards/' ~ c ~ '.png') }}">
+                            {% endfor %}
+                        {% else %}
+                            <span class="muted">—</span>
+                        {% endif %}
+                    {% endif %}
                 </span>
+
             </div>
         {% endfor %}
     </div>
@@ -45,24 +287,42 @@ button { margin-right: 5px; }
     <!-- Board -->
     <div class="column">
         <h3>Board</h3>
-        <div class="stage-board">
+        <div class="cards" style="text-align:center;">
             {% for c in game.board %}
-                <img src="{{ url_for('static', filename='cards/' ~ c ~ '.png') }}" width="50">
+                <img src="{{ url_for('static', filename='cards/' ~ c ~ '.png') }}">
             {% endfor %}
+            {% if not game.board %}
+                <div class="muted">—</div>
+            {% endif %}
         </div>
     </div>
 
-    <!-- Equities & Hand Descriptions -->
-    <div class="column equity-column">
-        <h3>Equities & Hands</h3>
+    <!-- Equities -->
+<div class="column">
+    <h3>Equities</h3>
+
+    {% if game.hide_equity %}
+        <div class="muted" style="text-align:center; padding:12px;">
+            🔒 Hidden from dealer
+        </div>
+    {% else %}
         {% for player, eq in player_equity_pairs %}
-            <div class="player-row">
-                <div style="width:120px;">{{ player }}</div>
-                <div>{{ eq|round(1) }}% — {{ game.hand_ranks[player] }}</div>
+            <div class="eq-row">
+                <div>{{ player }}</div>
+                <div>
+                    {% if game.phase != "WAITING" %}
+                        {{ eq|round(1) }}% — {{ game.hand_ranks[player] }}
+                    {% else %}
+                        <span class="muted">—</span>
+                    {% endif %}
+                </div>
             </div>
         {% endfor %}
-        <div>Tie: {{ game.tie|round(1) }}%</div>
-    </div>
+    {% endif %}
 </div>
+
+
+</div>
+
 </body>
 </html>

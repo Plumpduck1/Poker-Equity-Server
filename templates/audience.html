@@ -2,87 +2,419 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Poker Equity Calculator - Audience</title>
+<title>Poker Equity – Audience</title>
+
 <style>
-body { font-family: monospace; line-height: 1.6; }
-.cards img { margin-right: 2px; vertical-align: middle; }
-.container { display: flex; gap: 20px; align-items: flex-start; }
-.column { display: flex; flex-direction: column; min-width: 150px; }
-.player-row { margin-bottom: 10px; display: flex; justify-content: space-between; }
-.stage-board { margin-bottom: 10px; }
-h3 { margin-bottom: 5px; text-align: center; }
-.equity-column { min-width: 150px; }
+:root {
+    --bg: #0b0b0b;
+    --panel: #151515;
+    --border: #333;
+    --text: #eaeaea;
+    --muted: #999;
+    --accent: #3fa9f5;
+}
+
+body {
+    margin: 0;
+    padding: 24px;
+    font-family: system-ui, monospace;
+    background: var(--bg);
+    color: var(--text);
+}
+
+h1 {
+    text-align: center;
+    margin-bottom: 20px;
+    font-weight: 600;
+}
+
+.container {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr 1.3fr;
+    gap: 24px;
+    align-items: start;
+}
+
+.panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 14px;
+}
+
+.panel h3 {
+    margin: 0 0 12px 0;
+    text-align: center;
+    font-weight: 600;
+    color: var(--accent);
+}
+
+/* ---------- Players ---------- */
+
+.player-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.player-name {
+    font-weight: 600;
+}
+
+.player-pos {
+    color: var(--muted);
+    margin-right: 6px;
+}
+
+.cards img {
+    width: 42px;
+    margin-left: 2px;
+}
+
+/* ---------- Board ---------- */
+
+.board {
+    display: flex;
+    justify-content: center;
+    min-height: 56px;
+}
+
+.board img {
+    width: 46px;
+    margin-right: 4px;
+}
+
+.placeholder {
+    text-align: center;
+    color: var(--muted);
+    font-style: italic;
+}
+
+/* ---------- Equities ---------- */
+
+.eq-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.eq-name {
+    width: 110px;
+}
+
+.eq-val {
+    text-align: right;
+}
+
+.eq-row {
+    display: grid;
+    grid-template-columns: 110px 1fr 60px;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.eq-bar-bg {
+    background: #222;
+    border: 1px solid #333;
+    height: 12px;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.eq-bar-fill {
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        #3fa9f5,
+        #7cc7ff
+    );
+    width: 0%;
+    transition: width 0.6s ease;
+}
+
+.eq-val {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Leader Highlight ---------- */
+
+.eq-row {
+    display: grid;
+    grid-template-columns: 110px 1fr 60px 140px;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.eq-hand {
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+
+
+/* Soft background highlight */
+.eq-row.leader {
+    background: rgba(63, 169, 245, 0.12);
+}
+
+/* Leader indicator lives INSIDE the bar */
+.eq-row.leader .eq-bar-bg::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--accent);
+}
+
+/* Optional subtle glow for leader bar */
+.eq-row.leader .eq-bar-bg {
+    box-shadow: 0 0 6px rgba(63, 169, 245, 0.6);
+}
+
+/* ===============================
+   Equity Bars (safe reference)
+   =============================== */
+
+.eq-name {
+    white-space: nowrap;
+}
+
+.eq-bar-bg {
+    position: relative;
+    height: 10px;
+    background: #222;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.eq-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #3fa9f5, #6ec6ff);
+    transition: width 0.6s ease;
+}
+
+.eq-val {
+    text-align: right;
+    white-space: nowrap;
+}
+
+
+/* ---------- Pulse on Change ---------- */
+
+@keyframes pulse {
+    0%   { box-shadow: 0 0 0px rgba(63,169,245,0.0); }
+    50%  { box-shadow: 0 0 10px rgba(63,169,245,0.6); }
+    100% { box-shadow: 0 0 0px rgba(63,169,245,0.0); }
+}
+
+.eq-bar-fill.pulse {
+    animation: pulse 0.6s ease-out;
+}
+
+/* ---------- Tie Probability ---------- */
+
+.tie-info {
+    margin-top: 10px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+
+/* ---------- Footer ---------- */
+
+.footer {
+    margin-top: 14px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--muted);
+}
 </style>
 </head>
+
 <body>
-<h1>Audience View - Poker Equity Calculator</h1>
+
+<h1>Live Poker Equities</h1>
 
 <div class="container">
-    <div class="column" id="players-column"></div>
-    <div class="column" id="board-column"></div>
-    <div class="column equity-column" id="equity-column"></div>
+
+    <!-- PLAYERS -->
+    <div class="panel" id="players-panel">
+        <h3>Players</h3>
+        <div class="placeholder">Waiting for table…</div>
+    </div>
+
+    <!-- BOARD -->
+    <div class="panel" id="board-panel">
+        <h3>Board</h3>
+        <div class="board placeholder">—</div>
+    </div>
+
+    <!-- EQUITIES -->
+    <div class="panel" id="equity-panel">
+        <h3>Equities</h3>
+        <div class="placeholder">No hand in progress</div>
+    </div>
+
+</div>
+
+<div class="footer">
+    Cards are scanned once • Display is delayed • For spectators only
 </div>
 
 <script>
+
+let lastEquities = {};
+
+/*
+Correct 6-max position logic (BTN-based)
+Offsets:
+0 BTN, 1 SB, 2 BB, 3 UTG, 4 HJ, 5 CO
+*/
+function derivePositions(players, buttonIndex) {
+    const map = {};
+    const labels = ["BTN", "SB", "BB", "UTG", "HJ", "CO"];
+    for (let i = 0; i < 6; i++) {
+        const seat = (buttonIndex + i) % 6;
+        map[players[seat]] = labels[i];
+    }
+    return map;
+}
+
 async function updateGame() {
     try {
-        const response = await fetch('/game_state');
-        const data = await response.json();
+        const res = await fetch("/game_state");
+        const data = await res.json();
+        if (!data.players) return;
 
-        // --- Players & Hands ---
-        const playersColumn = document.getElementById('players-column');
-        playersColumn.innerHTML = '<h3>Players</h3>';
-        for (const player of data.players) {
-            const div = document.createElement('div');
-            div.className = 'player-row';
-            div.innerHTML = `<div style="width:120px;"><strong>${data.positions[player]} (${player})</strong></div>`;
-            const cardsSpan = document.createElement('span');
-            cardsSpan.className = 'cards';
-            data.hands[player].forEach(c => {
-                const img = document.createElement('img');
-                img.src = `/static/cards/${c}.png`;
-                img.width = 50;
-                cardsSpan.appendChild(img);
-            });
-            div.appendChild(cardsSpan);
-            playersColumn.appendChild(div);
-        }
+        const positions = derivePositions(data.players, data.button_index);
 
-        // --- Board ---
-        const boardColumn = document.getElementById('board-column');
-        boardColumn.innerHTML = '<h3>Board</h3>';
-        const boardDiv = document.createElement('div');
-        boardDiv.className = 'stage-board';
-        data.board.forEach(c => {
-            const img = document.createElement('img');
-            img.src = `/static/cards/${c}.png`;
-            img.width = 50;
-            boardDiv.appendChild(img);
+        /* ================= PLAYERS ================= */
+        const playersPanel = document.getElementById("players-panel");
+        playersPanel.innerHTML = "<h3>Players</h3>";
+
+        data.players.forEach(p => {
+            const row = document.createElement("div");
+            row.className = "player-row";
+
+            row.innerHTML = `
+                <div>
+                    <span class="player-pos">${positions[p]}</span>
+                    <span class="player-name">${p}</span>
+                </div>
+                <span class="cards">
+                    ${(data.hands && data.hands[p]) ? data.hands[p]
+                        .map(c => `<img src="/static/cards/${c}.png">`).join("") : ""}
+                </span>
+            `;
+
+            playersPanel.appendChild(row);
         });
-        boardColumn.appendChild(boardDiv);
 
-        // --- Equities & Hand Descriptions ---
-        const equityColumn = document.getElementById('equity-column');
-        equityColumn.innerHTML = '<h3>Equities & Hands</h3>';
-        for (const player of data.players) {
-            const div = document.createElement('div');
-            div.className = 'player-row';
-            div.innerHTML = `<div style="width:120px;">${player}</div>
-                             <div>${Math.round(data.equities[data.players.indexOf(player)])}% — ${data.hand_ranks[player]}</div>`;
-            equityColumn.appendChild(div);
+        /* ================= BOARD ================= */
+        const boardPanel = document.getElementById("board-panel");
+        boardPanel.innerHTML = "<h3>Board</h3>";
+
+        const boardDiv = document.createElement("div");
+        boardDiv.className = "board";
+
+        if (data.board?.length) {
+            data.board.forEach(c => {
+                const img = document.createElement("img");
+                img.src = `/static/cards/${c}.png`;
+                boardDiv.appendChild(img);
+            });
+        } else {
+            boardDiv.classList.add("placeholder");
+            boardDiv.textContent = "—";
         }
-        const tieDiv = document.createElement('div');
-        tieDiv.textContent = `Tie: ${Math.round(data.tie)}%`;
-        equityColumn.appendChild(tieDiv);
+
+        boardPanel.appendChild(boardDiv);
+
+        /* ================= EQUITIES ================= */
+        const eqPanel = document.getElementById("equity-panel");
+        eqPanel.innerHTML = "<h3>Equities</h3>";
+
+        if (data.phase && data.phase !== "WAITING") {
+
+            const maxEq = Math.max(...data.equities);
+
+            data.players.forEach((p, i) => {
+                const pct = Math.round(data.equities[i]);
+                const isLeader = data.equities[i] === maxEq && maxEq > 0;
+
+                const row = document.createElement("div");
+                row.className = "eq-row";
+                if (isLeader) row.classList.add("leader");
+
+                const barFill = document.createElement("div");
+                barFill.className = "eq-bar-fill";
+                barFill.style.width = `${pct}%`;
+
+                if (lastEquities[p] !== undefined && lastEquities[p] !== pct) {
+                    barFill.classList.add("pulse");
+                }
+
+                row.innerHTML = `
+                    <div class="eq-name">${p}</div>
+                    <div class="eq-bar-bg"></div>
+                    <div class="eq-val">${pct}%</div>
+                    <div class="eq-hand">
+                        ${isLeader && data.hand_ranks ? data.hand_ranks[p] : ""}
+                    </div>
+                `;
+
+                row.querySelector(".eq-bar-bg").appendChild(barFill);
+                eqPanel.appendChild(row);
+
+                lastEquities[p] = pct;
+            });
+
+            /* -------- Split Pot Chance -------- */
+            if (typeof data.tie_probability === "number" && data.tie_probability > 0) {
+                const tiePct = Math.round(data.tie_probability);
+
+                const tieRow = document.createElement("div");
+                tieRow.className = "eq-row";
+
+                const tieBar = document.createElement("div");
+                tieBar.className = "eq-bar-fill";
+                tieBar.style.width = `${tiePct}%`;
+
+                tieRow.innerHTML = `
+                    <div class="eq-name">Split Pot</div>
+                    <div class="eq-bar-bg"></div>
+                    <div class="eq-val">${tiePct}%</div>
+                    <div class="eq-hand"></div>
+                `;
+
+                tieRow.querySelector(".eq-bar-bg").appendChild(tieBar);
+                eqPanel.appendChild(tieRow);
+            }
+
+        } else {
+            eqPanel.innerHTML += `<div class="placeholder">Waiting for hand…</div>`;
+            lastEquities = {};
+        }
 
     } catch (err) {
-        console.error('Failed to fetch game state:', err);
+        console.error("Audience update failed:", err);
     }
 }
 
-// Poll every 1.5 seconds
+
+
 setInterval(updateGame, 1500);
 updateGame();
 </script>
+
 </body>
 </html>

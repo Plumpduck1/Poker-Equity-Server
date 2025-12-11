@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Table Configuration</title>
+<style>
+    body {
+        font-family: monospace;
+        background: #111;
+        color: #eee;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+    }
+
+    .config-container {
+        border: 1px solid #444;
+        padding: 20px 30px;
+        width: 320px;
+    }
+
+    h1 {
+        text-align: center;
+        margin-bottom: 20px;
+        font-size: 18px;
+    }
+
+    .row {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .position {
+        width: 50px;
+        text-align: right;
+        margin-right: 10px;
+    }
+
+    input[type="text"] {
+        flex: 1;
+        padding: 4px;
+        font-family: monospace;
+    }
+
+    select {
+        width: 100%;
+        margin-top: 10px;
+        padding: 4px;
+        font-family: monospace;
+    }
+
+    button {
+        width: 100%;
+        margin-top: 15px;
+        padding: 8px;
+        font-family: monospace;
+        cursor: pointer;
+    }
+</style>
+</head>
+
+<body>
+<div class="config-container">
+    <h1>6-Max Table Setup</h1>
+
+    <form method="POST">
+        <div class="row">
+            <div class="position">UTG:</div>
+            <input type="text" name="players[]" required>
+        </div>
+        <div class="row">
+            <div class="position">HJ:</div>
+            <input type="text" name="players[]" required>
+        </div>
+        <div class="row">
+            <div class="position">CO:</div>
+            <input type="text" name="players[]" required>
+        </div>
+        <div class="row">
+            <div class="position">BTN:</div>
+            <input type="text" name="players[]" required>
+        </div>
+        <div class="row">
+            <div class="position">SB:</div>
+            <input type="text" name="players[]" required>
+        </div>
+        <div class="row">
+            <div class="position">BB:</div>
+            <input type="text" name="players[]" required>
+        </div>
+
+        <select name="button_index">
+            <option value="0">Button at UTG</option>
+            <option value="1">Button at HJ</option>
+            <option value="2">Button at CO</option>
+            <option value="3">Button at BTN</option>
+            <option value="4">Button at SB</option>
+            <option value="5">Button at BB</option>
+        </select>
+
+        <button type="submit">Start Game</button>
+    </form>
+</div>
+</body>
+</html>

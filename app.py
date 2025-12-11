@@ -1,91 +1,284 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, redirect
 import random
-from equity import calculate_equity_multi  # updated equity calculation
+from equity import calculate_equity_multi
 
 app = Flask(__name__)
 
-# --- Initial game state ---
-players = ["Charles", "Peter", "Ryan", "Mihir", "Xavier", "Danial"]
-positions_order = ["UTG", "HJ", "CO", "BTN", "SB", "BB"]
+# -----------------------------
+# Constants & Helpers
+# -----------------------------
 
-def new_game():
-    hands_pool = [f"{r}{s}" for r in "23456789TJQKA" for s in "cdhs"]
-    hands = {}
-    for p in players:
-        hands[p] = random.sample(hands_pool, 2)
-        for c in hands[p]:
-            hands_pool.remove(c)
-    return {
-        "players": players[:],
-        "positions": dict(zip(players, positions_order)),
-        "hands": hands,
-        "board": [],
-        "equities": [0]*len(players),
-        "tie": 0,
-        "hand_ranks": {p: "" for p in players}
+RANKS = "23456789TJQKA"
+SUITS = "cdhs"
+
+
+def get_positions(players, button_index):
+    """
+    Correct 6-max position mapping.
+    players = fixed seat order (clockwise)
+    button_index = index of BTN in players
+    """
+    pos_map = {}
+    n = len(players)
+
+    mapping = {
+        0: "BTN",
+        1: "SB",
+        2: "BB",
+        3: "UTG",
+        4: "HJ",
+        5: "CO",
     }
 
-game_state = new_game()
+    for offset, pos in mapping.items():
+        seat = (button_index + offset) % n
+        pos_map[players[seat]] = pos
 
-# --- Helper to rotate positions ---
-def rotate_positions():
+    return pos_map
+
+
+
+def fresh_deck():
+    return [f"{r}{s}" for r in RANKS for s in SUITS]
+
+
+# -----------------------------
+# Global State
+# -----------------------------
+
+game_state = None
+
+
+# -----------------------------
+# Deck / Dealing Logic
+# -----------------------------
+
+def scan_full_deck_sim():
+    """
+    Simulate scanning all 52 cards.
+    deck[0] is the TOP of deck (first card dealt).
+    """
+    deck = fresh_deck()
+    random.shuffle(deck)
+
+    game_state["deck"] = deck
+    game_state["deck_pointer"] = 0
+    game_state["burned"] = []
+
+
+def scan_next_card():
+    card = game_state["deck"][game_state["deck_pointer"]]
+    game_state["deck_pointer"] += 1
+    return card
+
+
+def burn_card():
+    game_state["burned"].append(scan_next_card())
+
+
+def deal_hole_cards():
+    """
+    Deal hole cards SB → BTN, 2 rounds.
+    """
+    hands = {p: [] for p in game_state["players"]}
+
+    # SB is immediately left of BTN
+    start = (game_state["button_index"] + 1) % 6
+
+    for _ in range(2):
+        for i in range(6):
+            seat = (start + i) % 6
+            player = game_state["players"][seat]
+            hands[player].append(scan_next_card())
+
+    game_state["hands"] = hands
+    game_state["phase"] = "PREFLOP"
+
+
+def deal_flop():
+    burn_card()
+    game_state["board"] = [scan_next_card() for _ in range(3)]
+    game_state["phase"] = "FLOP"
+
+
+def deal_turn():
+    burn_card()
+    game_state["board"].append(scan_next_card())
+    game_state["phase"] = "TURN"
+
+
+def deal_river():
+    burn_card()
+    game_state["board"].append(scan_next_card())
+    game_state["phase"] = "RIVER"
+
+
+# -----------------------------
+# Game Initialisation
+# -----------------------------
+
+def start_new_game(players, button_index):
+    return {
+        "hide_equity": False,
+        "players": players,
+        "button_index": button_index,   # index of BTN
+        "phase": "WAITING",              # WAITING | PREFLOP | FLOP | TURN | RIVER
+        "deck": [],
+        "deck_pointer": 0,
+        "burned": [],
+        "hands": {},
+        "board": [],
+        "equities": [0] * 6,
+        "hand_ranks": {p: "" for p in players},
+    }
+
+
+# -----------------------------
+# Routes
+# -----------------------------
+
+@app.route("/host/config", methods=["GET", "POST"])
+def host_config():
     global game_state
-    game_state["players"] = game_state["players"][1:] + [game_state["players"][0]]
-    game_state["positions"] = dict(zip(game_state["players"], positions_order))
 
-# --- Routes ---
+    if request.method == "POST":
+        players = request.form.getlist("players[]")
+        button_index = int(request.form["button_index"])
+
+        if len(players) != 6 or any(p.strip() == "" for p in players):
+            return "Error: Must enter exactly 6 player names", 400
+
+        game_state = start_new_game(players, button_index)
+        return redirect("/host")
+
+    return render_template("config.html")
+
+
 @app.route("/host", methods=["GET", "POST"])
 def host_view():
     global game_state
+
+    
+
+    if game_state is None:
+        return redirect("/host/config")
+
     if request.method == "POST":
         action = request.form.get("action")
-        deck = [f"{r}{s}" for r in "23456789TJQKA" for s in "cdhs"]
-        used = [c for h in game_state["hands"].values() for c in h] + game_state["board"]
-        deck = [c for c in deck if c not in used]
-        random.shuffle(deck)
+        
+        # -----------------------------
+        # Dealer privacy toggle
+        # -----------------------------
+        if "toggle_privacy" in request.form:
+            game_state["hide_equity"] = not game_state.get("hide_equity", False)
+            return redirect("/host")
 
-        if action == "flop" and len(game_state["board"]) == 0:
-            game_state["board"] += [deck.pop() for _ in range(3)]
-        elif action == "turn" and len(game_state["board"]) == 3:
-            game_state["board"].append(deck.pop())
-        elif action == "river" and len(game_state["board"]) == 4:
-            game_state["board"].append(deck.pop())
-        elif action == "reset":
-            rotate_positions()
-            hands_pool = [f"{r}{s}" for r in "23456789TJQKA" for s in "cdhs"]
-            hands = {}
-            for p in game_state["players"]:
-                hands[p] = random.sample(hands_pool, 2)
-                for c in hands[p]:
-                    hands_pool.remove(c)
-            game_state["hands"] = hands
+        # -----------------------------
+        # Manual BTN override
+        # -----------------------------
+        if "set_btn" in request.form:
+            btn_index = int(request.form.get("set_btn"))
+            game_state["button_index"] = btn_index
+            return redirect("/host")
+
+        # -----------------------------
+        # New Hand
+        # -----------------------------
+        if action == "new_hand":
+            game_state["button_index"] = (game_state["button_index"] - 1) % 6
+            game_state["phase"] = "WAITING"
+            game_state["deck"] = []
+            game_state["deck_pointer"] = 0
+            game_state["burned"] = []
+            game_state["hands"] = {}
             game_state["board"] = []
-            game_state["equities"] = [0]*len(players)
-            game_state["tie"] = 0
+            game_state["equities"] = [0] * 6
             game_state["hand_ranks"] = {p: "" for p in game_state["players"]}
+            return redirect("/host")
 
-    # --- Calculate equities and hand ranks ---
-    equities, tie, hand_ranks = calculate_equity_multi(
-        [game_state["hands"][p] for p in game_state["players"]],
-        player_names=game_state["players"],
-        iterations=2000,
-        board_str=game_state["board"]
+        # -----------------------------
+        # Scan Deck (simulated)
+        # -----------------------------
+        if action == "scan_deck" and game_state["phase"] == "WAITING":
+            scan_full_deck_sim()
+            return redirect("/host")
+
+        # -----------------------------
+        # Deal Hole Cards
+        # -----------------------------
+        if action == "deal_hole" and game_state["phase"] == "WAITING":
+            deal_hole_cards()
+            return redirect("/host")
+
+        # -----------------------------
+        # Deal Next Street
+        # -----------------------------
+        if action == "next_street":
+            if game_state["phase"] == "PREFLOP":
+                deal_flop()
+            elif game_state["phase"] == "FLOP":
+                deal_turn()
+            elif game_state["phase"] == "TURN":
+                deal_river()
+            return redirect("/host")
+
+        return redirect("/host")
+
+    # -----------------------------
+    # GET: Equity calculation
+    # -----------------------------
+    if game_state["phase"] in ("PREFLOP", "FLOP", "TURN", "RIVER"):
+        equities, tie_prob, hand_ranks = calculate_equity_multi(
+            [game_state["hands"][p] for p in game_state["players"]],
+            player_names=game_state["players"],
+            iterations=5000,
+            board_str=game_state["board"],
+        )
+
+        game_state["equities"] = equities
+        game_state["hand_ranks"] = hand_ranks
+        game_state["tie_probability"] = tie_prob
+
+
+    positions = get_positions(
+        game_state["players"],
+        game_state["button_index"],
     )
-    game_state["equities"] = equities
-    game_state["tie"] = tie
-    game_state["hand_ranks"] = hand_ranks
 
     player_equity_pairs = list(zip(game_state["players"], game_state["equities"]))
-    return render_template("host.html", game=game_state, player_equity_pairs=player_equity_pairs)
+
+    return render_template(
+        "host.html",
+        game=game_state,
+        positions=positions,
+        player_equity_pairs=player_equity_pairs,
+    )
+
+
 
 @app.route("/", methods=["GET"])
 def audience_view():
+    if game_state is None:
+        return "Game not configured", 400
+
     player_equity_pairs = list(zip(game_state["players"], game_state["equities"]))
-    return render_template("audience.html", game=game_state, player_equity_pairs=player_equity_pairs)
+    return render_template(
+        "audience.html",
+        game=game_state,
+        player_equity_pairs=player_equity_pairs,
+    )
+
 
 @app.route("/game_state")
 def game_state_json():
+    if game_state is None:
+        return {}, 400
     return game_state
+
+
+# -----------------------------
+# Run
+# -----------------------------
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
