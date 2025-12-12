@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 
-<!-- 🔑 REQUIRED FOR MOBILE LAYOUT -->
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- CRITICAL FOR MOBILE -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 
 <title>Poker Equity – Audience</title>
 
@@ -22,17 +22,30 @@
     box-sizing: border-box;
 }
 
+/* ================= BODY ================= */
+
 body {
     margin: 0;
-    padding: 20px;
+    padding: 16px;
     font-family: system-ui, monospace;
     background: var(--bg);
     color: var(--text);
+    display: flex;
+    justify-content: center;
 }
+
+/* ================= PAGE WRAPPER ================= */
+
+.page {
+    width: 100%;
+    max-width: 1100px;   /* prevents stretching on large screens */
+}
+
+/* ================= HEADER ================= */
 
 h1 {
     text-align: center;
-    margin-bottom: 18px;
+    margin: 0 0 16px 0;
     font-weight: 600;
 }
 
@@ -41,18 +54,20 @@ h1 {
 .container {
     display: grid;
     grid-template-columns: 1.3fr 1fr 1.4fr;
-    gap: 20px;
-    align-items: start;
+    gap: 16px;
 }
+
+/* ================= PANELS ================= */
 
 .panel {
     background: var(--panel);
     border: 1px solid var(--border);
-    padding: 14px;
+    padding: 12px;
+    width: 100%;
 }
 
 .panel h3 {
-    margin: 0 0 12px 0;
+    margin: 0 0 10px 0;
     text-align: center;
     font-weight: 600;
     color: var(--accent);
@@ -64,7 +79,7 @@ h1 {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
 }
 
 .player-left {
@@ -74,8 +89,8 @@ h1 {
 }
 
 .player-pos {
-    color: var(--muted);
     font-size: 12px;
+    color: var(--muted);
 }
 
 .player-name {
@@ -83,7 +98,7 @@ h1 {
 }
 
 .cards img {
-    width: 42px;
+    width: 40px;
     margin-left: 2px;
 }
 
@@ -92,11 +107,12 @@ h1 {
 .board {
     display: flex;
     justify-content: center;
-    min-height: 56px;
+    align-items: center;
+    min-height: 48px;
 }
 
 .board img {
-    width: 46px;
+    width: 44px;
     margin-right: 4px;
 }
 
@@ -104,11 +120,11 @@ h1 {
 
 .eq-row {
     display: grid;
-    grid-template-columns: 110px 1fr 140px;
+    grid-template-columns: 90px 1fr 150px;
     gap: 8px;
     align-items: center;
-    margin-bottom: 10px;
-    padding: 4px 6px;
+    margin-bottom: 8px;
+    padding: 4px;
 }
 
 .eq-row.leader {
@@ -121,7 +137,6 @@ h1 {
 }
 
 .eq-bar-bg {
-    position: relative;
     height: 10px;
     background: #222;
     border-radius: 6px;
@@ -132,7 +147,7 @@ h1 {
     height: 100%;
     width: 0%;
     background: linear-gradient(90deg, #3fa9f5, #7cc7ff);
-    transition: width 0.6s ease;
+    transition: width 0.5s ease;
 }
 
 .eq-val {
@@ -142,16 +157,16 @@ h1 {
 }
 
 .eq-hand {
-    color: var(--muted);
     font-size: 12px;
+    color: var(--muted);
     margin-left: 6px;
 }
 
 /* ================= PULSE ================= */
 
 @keyframes pulse {
-    0%   { box-shadow: 0 0 0 rgba(63,169,245,0); }
-    50%  { box-shadow: 0 0 10px rgba(63,169,245,0.6); }
+    0% { box-shadow: 0 0 0 rgba(63,169,245,0); }
+    50% { box-shadow: 0 0 8px rgba(63,169,245,0.6); }
     100% { box-shadow: 0 0 0 rgba(63,169,245,0); }
 }
 
@@ -159,7 +174,7 @@ h1 {
     animation: pulse 0.6s ease-out;
 }
 
-/* ================= PLACEHOLDERS ================= */
+/* ================= PLACEHOLDER ================= */
 
 .placeholder {
     text-align: center;
@@ -170,7 +185,7 @@ h1 {
 /* ================= FOOTER ================= */
 
 .footer {
-    margin-top: 14px;
+    margin-top: 12px;
     text-align: center;
     font-size: 12px;
     color: var(--muted);
@@ -178,20 +193,16 @@ h1 {
 
 /* ================= MOBILE ================= */
 
-@media (max-width: 800px) {
+@media (max-width: 768px) {
 
     body {
-        padding: 12px;
+        padding: 10px;
     }
 
     .container {
         display: flex;
         flex-direction: column;
-        gap: 14px;
-    }
-
-    h1 {
-        font-size: 18px;
+        gap: 12px;
     }
 
     .cards img {
@@ -199,25 +210,23 @@ h1 {
     }
 
     .board img {
-        width: 38px;
+        width: 36px;
     }
 
     .eq-row {
-        grid-template-columns: 90px 1fr 120px;
+        grid-template-columns: 80px 1fr 120px;
     }
 
-    .eq-name {
-        font-size: 13px;
-    }
-
-    .eq-val {
-        font-size: 13px;
+    h1 {
+        font-size: 18px;
     }
 }
 </style>
 </head>
 
 <body>
+
+<div class="page">
 
 <h1>Live Poker Equities</h1>
 
@@ -244,13 +253,14 @@ h1 {
 </div>
 
 <div class="footer">
-    Cards are scanned once • Display is delayed • Spectator view
+    Cards are scanned once • Display delayed • Spectator view
+</div>
+
 </div>
 
 <script>
 let lastEquities = {};
 
-/* BTN-based 6-max positions */
 function derivePositions(players, btn) {
     const labels = ["BTN","SB","BB","UTG","HJ","CO"];
     const map = {};
@@ -261,111 +271,105 @@ function derivePositions(players, btn) {
 }
 
 async function updateGame() {
-    try {
-        const res = await fetch("/game_state");
-        const data = await res.json();
-        if (!data.players) return;
+    const res = await fetch("/game_state");
+    const data = await res.json();
+    if (!data.players) return;
 
-        const positions = derivePositions(data.players, data.button_index);
+    const positions = derivePositions(data.players, data.button_index);
 
-        /* PLAYERS */
-        const playersPanel = document.getElementById("players-panel");
-        playersPanel.innerHTML = "<h3>Players</h3>";
+    /* PLAYERS */
+    const playersPanel = document.getElementById("players-panel");
+    playersPanel.innerHTML = "<h3>Players</h3>";
 
-        data.players.forEach(p => {
-            const row = document.createElement("div");
-            row.className = "player-row";
+    data.players.forEach(p => {
+        const row = document.createElement("div");
+        row.className = "player-row";
+        row.innerHTML = `
+            <div class="player-left">
+                <span class="player-pos">${positions[p]}</span>
+                <span class="player-name">${p}</span>
+            </div>
+        `;
 
-            row.innerHTML = `
-                <div class="player-left">
-                    <span class="player-pos">${positions[p]}</span>
-                    <span class="player-name">${p}</span>
-                </div>
-            `;
+        const cards = document.createElement("span");
+        cards.className = "cards";
 
-            const cards = document.createElement("span");
-            cards.className = "cards";
-
-            if (data.hands && data.hands[p]) {
-                data.hands[p].forEach(c => {
-                    const img = document.createElement("img");
-                    img.src = "/static/cards/" + c + ".png";
-                    cards.appendChild(img);
-                });
-            }
-
-            row.appendChild(cards);
-            playersPanel.appendChild(row);
-        });
-
-        /* BOARD */
-        const boardPanel = document.getElementById("board-panel");
-        boardPanel.innerHTML = "<h3>Board</h3>";
-        const board = document.createElement("div");
-        board.className = "board";
-
-        if (data.board && data.board.length) {
-            data.board.forEach(c => {
+        if (data.hands && data.hands[p]) {
+            data.hands[p].forEach(c => {
                 const img = document.createElement("img");
                 img.src = "/static/cards/" + c + ".png";
-                board.appendChild(img);
+                cards.appendChild(img);
             });
-        } else {
-            board.classList.add("placeholder");
-            board.textContent = "—";
         }
-        boardPanel.appendChild(board);
 
-        /* EQUITIES */
-        const eqPanel = document.getElementById("equity-panel");
-        eqPanel.innerHTML = "<h3>Equities</h3>";
+        row.appendChild(cards);
+        playersPanel.appendChild(row);
+    });
 
-        if (data.phase !== "WAITING") {
-            const maxEq = Math.max(...data.equities);
+    /* BOARD */
+    const boardPanel = document.getElementById("board-panel");
+    boardPanel.innerHTML = "<h3>Board</h3>";
+    const board = document.createElement("div");
+    board.className = "board";
 
-            data.players.forEach((p, i) => {
-                const pct = Math.round(data.equities[i]);
-                const leader = data.equities[i] === maxEq && maxEq > 0;
+    if (data.board?.length) {
+        data.board.forEach(c => {
+            const img = document.createElement("img");
+            img.src = "/static/cards/" + c + ".png";
+            board.appendChild(img);
+        });
+    } else {
+        board.classList.add("placeholder");
+        board.textContent = "—";
+    }
 
-                const row = document.createElement("div");
-                row.className = "eq-row";
-                if (leader) row.classList.add("leader");
+    boardPanel.appendChild(board);
 
-                row.innerHTML = `
-                    <div class="eq-name">${p}</div>
-                    <div class="eq-bar-bg"><div class="eq-bar-fill"></div></div>
-                    <div class="eq-val">${pct}% <span class="eq-hand">${data.hand_ranks[p] || ""}</span></div>
-                `;
+    /* EQUITIES */
+    const eqPanel = document.getElementById("equity-panel");
+    eqPanel.innerHTML = "<h3>Equities</h3>";
 
-                const fill = row.querySelector(".eq-bar-fill");
-                fill.style.width = pct + "%";
+    if (data.phase !== "WAITING") {
+        const maxEq = Math.max(...data.equities);
 
-                if (lastEquities[p] !== undefined && lastEquities[p] !== pct) {
-                    fill.classList.add("pulse");
-                }
+        data.players.forEach((p, i) => {
+            const pct = Math.round(data.equities[i]);
+            const leader = data.equities[i] === maxEq && maxEq > 0;
 
-                lastEquities[p] = pct;
-                eqPanel.appendChild(row);
-            });
+            const row = document.createElement("div");
+            row.className = "eq-row" + (leader ? " leader" : "");
 
-            if (data.tie_probability > 0) {
-                const t = Math.round(data.tie_probability);
-                const row = document.createElement("div");
-                row.className = "eq-row";
-                row.innerHTML = `
-                    <div class="eq-name">Split Pot</div>
-                    <div class="eq-bar-bg"><div class="eq-bar-fill" style="width:${t}%"></div></div>
-                    <div class="eq-val">${t}%</div>
-                `;
-                eqPanel.appendChild(row);
+            row.innerHTML = `
+                <div class="eq-name">${p}</div>
+                <div class="eq-bar-bg"><div class="eq-bar-fill"></div></div>
+                <div class="eq-val">${pct}% <span class="eq-hand">${data.hand_ranks[p] || ""}</span></div>
+            `;
+
+            const fill = row.querySelector(".eq-bar-fill");
+            fill.style.width = pct + "%";
+
+            if (lastEquities[p] !== undefined && lastEquities[p] !== pct) {
+                fill.classList.add("pulse");
             }
-        } else {
-            eqPanel.innerHTML += `<div class="placeholder">Waiting for hand…</div>`;
-            lastEquities = {};
-        }
 
-    } catch (e) {
-        console.error(e);
+            lastEquities[p] = pct;
+            eqPanel.appendChild(row);
+        });
+
+        if (data.tie_probability > 0) {
+            const t = Math.round(data.tie_probability);
+            const row = document.createElement("div");
+            row.className = "eq-row";
+            row.innerHTML = `
+                <div class="eq-name">Split Pot</div>
+                <div class="eq-bar-bg"><div class="eq-bar-fill" style="width:${t}%"></div></div>
+                <div class="eq-val">${t}%</div>
+            `;
+            eqPanel.appendChild(row);
+        }
+    } else {
+        eqPanel.innerHTML += `<div class="placeholder">Waiting for hand…</div>`;
+        lastEquities = {};
     }
 }
 
