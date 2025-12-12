@@ -147,15 +147,20 @@ def host_config():
 
     if request.method == "POST":
         players = request.form.getlist("players[]")
+        players = [p.strip() for p in players]
         button_index = int(request.form["button_index"])
 
-        if len(players) != 6 or any(p.strip() == "" for p in players):
+        if len(players) != 6 or any(p == "" for p in players):
             return "Error: Must enter exactly 6 player names", 400
+
+        if len(set(players)) != len(players):
+            return "Error: Player names must be unique", 400
 
         game_state = start_new_game(players, button_index)
         return redirect("/host")
 
     return render_template("config.html")
+
 
 
 @app.route("/host", methods=["GET", "POST"])
