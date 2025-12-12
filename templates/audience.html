@@ -237,6 +237,55 @@ h1 {
     font-size: 12px;
     color: var(--muted);
 }
+
+/* ===============================
+   Mobile Layout (Phones)
+   =============================== */
+
+@media (max-width: 800px) {
+
+    body {
+        padding: 14px;
+    }
+
+    .container {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    h1 {
+        font-size: 18px;
+        margin-bottom: 14px;
+    }
+
+    .panel {
+        padding: 12px;
+    }
+
+    /* Slightly smaller cards for phones */
+    .cards img {
+        width: 34px;
+    }
+
+    .board img {
+        width: 38px;
+    }
+
+    /* Make equity bars easier to read */
+    .eq-row {
+        grid-template-columns: 90px 1fr 56px;
+    }
+
+    .eq-name {
+        font-size: 13px;
+    }
+
+    .eq-val {
+        font-size: 13px;
+    }
+}
+
+
 </style>
 </head>
 
