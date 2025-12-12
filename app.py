@@ -94,6 +94,13 @@ def deal_hole_cards():
     game_state["hands"] = hands
     game_state["phase"] = "PREFLOP"
 
+    # ALWAYS initialize equity fields
+    num_players = len(game_state["players"])
+    game_state["equities"] = [0.0] * num_players
+    game_state["tie_probability"] = 0.0
+    game_state["hand_ranks"] = {p: "" for p in game_state["players"]}
+
+
 
 def deal_flop():
     burn_card()
@@ -229,15 +236,15 @@ def host_view():
     # -----------------------------
     if game_state["phase"] in ("PREFLOP", "FLOP", "TURN", "RIVER"):
         equities, tie_prob, hand_ranks = calculate_equity_multi(
-            [game_state["hands"][p] for p in game_state["players"]],
-            player_names=game_state["players"],
-            iterations=5000,
-            board_str=game_state["board"],
-        )
+        [game_state["hands"][p] for p in game_state["players"]],
+        player_names=game_state["players"],
+        iterations=5000,
+        board_str=game_state["board"],
+    )
 
-        game_state["equities"] = equities
-        game_state["hand_ranks"] = hand_ranks
-        game_state["tie_probability"] = tie_prob
+    game_state["equities"] = equities
+    game_state["tie_probability"] = tie_prob
+    game_state["hand_ranks"] = hand_ranks
 
 
     positions = get_positions(
