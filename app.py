@@ -235,16 +235,22 @@ def host_view():
     # GET: Equity calculation
     # -----------------------------
     if game_state["phase"] in ("PREFLOP", "FLOP", "TURN", "RIVER"):
-        equities, tie_prob, hand_ranks = calculate_equity_multi(
-        [game_state["hands"][p] for p in game_state["players"]],
-        player_names=game_state["players"],
-        iterations=5000,
-        board_str=game_state["board"],
-    )
+        equities, tie_probability, hand_ranks = calculate_equity_multi(
+            [game_state["hands"][p] for p in game_state["players"]],
+            player_names=game_state["players"],
+            iterations=5000,
+            board_str=game_state["board"],
+        )
 
-    game_state["equities"] = equities
-    game_state["tie_probability"] = tie_prob
-    game_state["hand_ranks"] = hand_ranks
+        game_state["equities"] = equities
+        game_state["tie_probability"] = tie_probability
+        game_state["hand_ranks"] = hand_ranks
+    else:
+        # SAFE defaults so host never crashes
+        game_state["equities"] = [0.0] * len(game_state["players"])
+        game_state["tie_probability"] = 0.0
+        game_state["hand_ranks"] = {p: "" for p in game_state["players"]}
+
 
 
     positions = get_positions(
