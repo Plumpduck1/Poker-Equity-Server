@@ -16,14 +16,16 @@ RANK_STR = {
 
 def find_five_card_straight(cards):
     """
-    Returns (low_rank, high_rank) for a valid 5-card straight,
-    or None if no straight exists. Handles wheel (A-5).
+    Returns:
+        ("A", "5") for wheel straight
+        (low_rank_int, high_rank_int) for normal straight
+        None if no straight exists
     """
     ranks = set(Card.get_rank_int(c) for c in cards)
 
     # Wheel: A-2-3-4-5
     if {12, 0, 1, 2, 3}.issubset(ranks):
-        return (0, 3)
+        return ("A", "5")
 
     # Normal straights
     for high in range(12, 3, -1):
@@ -34,7 +36,7 @@ def find_five_card_straight(cards):
     return None
 
 # ---------------------------------
-# Equity calculation (CORRECT)
+# Equity calculation
 # ---------------------------------
 
 def calculate_equity_multi(hands_str, player_names, iterations=2000, board_str=None):
@@ -55,6 +57,7 @@ def calculate_equity_multi(hands_str, player_names, iterations=2000, board_str=N
             for c in h:
                 if c in deck.cards:
                     deck.cards.remove(c)
+
         for c in board:
             if c in deck.cards:
                 deck.cards.remove(c)
@@ -69,12 +72,11 @@ def calculate_equity_multi(hands_str, player_names, iterations=2000, board_str=N
         best_score = min(scores)
         winners = [i for i, s in enumerate(scores) if s == best_score]
 
-        # ---- Equity (split pot) ----
+        # Split pot equity
         share = 1.0 / len(winners)
         for w in winners:
             wins[w] += share
 
-        # ---- Tie probability ----
         if len(winners) > 1:
             tie_count += 1
 
@@ -87,7 +89,6 @@ def calculate_equity_multi(hands_str, player_names, iterations=2000, board_str=N
     }
 
     return equities, tie_probability, hand_ranks
-
 
 # ---------------------------------
 # Hand description
@@ -135,7 +136,10 @@ def describe_hand(hole_cards_str, board_str):
         return f"Three of a Kind, {RANK_STR[freq_sorted[0][0]]}s"
 
     if class_name == "Straight":
-        low, high = find_five_card_straight(all_cards)
+        result = find_five_card_straight(all_cards)
+        if result == ("A", "5"):
+            return "Straight, A to 5"
+        low, high = result
         return f"Straight, {RANK_STR[low]} to {RANK_STR[high]}"
 
     if class_name == "Flush":
@@ -148,9 +152,14 @@ def describe_hand(hole_cards_str, board_str):
         return f"Four of a Kind, {RANK_STR[freq_sorted[0][0]]}s"
 
     if class_name == "Straight Flush":
-        low, high = find_five_card_straight(all_cards)
-        if low == 8 and high == 12:
+        result = find_five_card_straight(all_cards)
+        if result == ("A", "5"):
+            return "Straight Flush, A to 5"
+
+        low, high = result
+        if high == 12 and low == 8:
             return "Royal Flush"
+
         return f"Straight Flush, {RANK_STR[low]} to {RANK_STR[high]}"
 
     return class_name

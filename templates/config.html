@@ -1,107 +1,206 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Table Configuration</title>
+<title>Poker Table Setup</title>
+
 <style>
-    body {
-        font-family: monospace;
-        background: #111;
-        color: #eee;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 100vh;
-    }
+:root {
+    --bg: #0b0b0b;
+    --panel: #141414;
+    --border: #333;
+    --text: #eaeaea;
+    --muted: #888;
+    --accent: #3fa9f5;
+}
 
-    .config-container {
-        border: 1px solid #444;
-        padding: 20px 30px;
-        width: 320px;
-    }
+body {
+    margin: 0;
+    height: 100vh;
+    background: radial-gradient(circle at top, #141414, #050505);
+    color: var(--text);
+    font-family: system-ui, monospace;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
 
-    h1 {
-        text-align: center;
-        margin-bottom: 20px;
-        font-size: 18px;
-    }
+.config-container {
+    width: 360px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 22px 26px;
+    box-shadow: 0 0 40px rgba(0,0,0,0.8);
+}
 
-    .row {
-        display: flex;
-        align-items: center;
-        margin-bottom: 10px;
-    }
+h1 {
+    text-align: center;
+    margin: 0 0 18px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--accent);
+}
 
-    .position {
-        width: 50px;
-        text-align: right;
-        margin-right: 10px;
-    }
+.subtitle {
+    text-align: center;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 18px;
+}
 
-    input[type="text"] {
-        flex: 1;
-        padding: 4px;
-        font-family: monospace;
-    }
+/* ---------- Seat Rows ---------- */
 
-    select {
-        width: 100%;
-        margin-top: 10px;
-        padding: 4px;
-        font-family: monospace;
-    }
+.row {
+    display: grid;
+    grid-template-columns: 48px 1fr;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 10px;
+}
 
-    button {
-        width: 100%;
-        margin-top: 15px;
-        padding: 8px;
-        font-family: monospace;
-        cursor: pointer;
-    }
+.position {
+    text-align: right;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+input[type="text"] {
+    background: #0f0f0f;
+    border: 1px solid #333;
+    color: var(--text);
+    padding: 6px;
+    font-family: monospace;
+}
+
+input[type="text"]:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+/* ---------- Button Selector ---------- */
+
+label {
+    display: block;
+    margin-top: 16px;
+    margin-bottom: 6px;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+select {
+    width: 100%;
+    background: #0f0f0f;
+    border: 1px solid #333;
+    color: var(--text);
+    padding: 6px;
+    font-family: monospace;
+}
+
+select:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.help-text {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 6px;
+    text-align: center;
+}
+
+/* ---------- Submit ---------- */
+
+button {
+    width: 100%;
+    margin-top: 18px;
+    padding: 10px;
+    font-family: monospace;
+    font-weight: 600;
+    background: linear-gradient(90deg, #2b78c2, #3fa9f5);
+    border: none;
+    color: #000;
+    cursor: pointer;
+}
+
+button:hover {
+    filter: brightness(1.05);
+}
 </style>
 </head>
 
 <body>
+
 <div class="config-container">
     <h1>6-Max Table Setup</h1>
+    <div class="subtitle">Configure players before dealing</div>
 
     <form method="POST">
+
         <div class="row">
-            <div class="position">UTG:</div>
-            <input type="text" name="players[]" required>
-        </div>
-        <div class="row">
-            <div class="position">HJ:</div>
-            <input type="text" name="players[]" required>
-        </div>
-        <div class="row">
-            <div class="position">CO:</div>
-            <input type="text" name="players[]" required>
-        </div>
-        <div class="row">
-            <div class="position">BTN:</div>
-            <input type="text" name="players[]" required>
-        </div>
-        <div class="row">
-            <div class="position">SB:</div>
-            <input type="text" name="players[]" required>
-        </div>
-        <div class="row">
-            <div class="position">BB:</div>
+            <div class="position">UTG</div>
             <input type="text" name="players[]" required>
         </div>
 
-        <select name="button_index">
-            <option value="0">Button at UTG</option>
-            <option value="1">Button at HJ</option>
-            <option value="2">Button at CO</option>
-            <option value="3">Button at BTN</option>
-            <option value="4">Button at SB</option>
-            <option value="5">Button at BB</option>
+        <div class="row">
+            <div class="position">HJ</div>
+            <input type="text" name="players[]" required>
+        </div>
+
+        <div class="row">
+            <div class="position">CO</div>
+            <input type="text" name="players[]" required>
+        </div>
+
+        <div class="row">
+            <div class="position">BTN</div>
+            <input type="text" name="players[]" required>
+        </div>
+
+        <div class="row">
+            <div class="position">SB</div>
+            <input type="text" name="players[]" required>
+        </div>
+
+        <div class="row">
+            <div class="position">BB</div>
+            <input type="text" name="players[]" required>
+        </div>
+
+        <label for="button_index">Dealer Button starts on</label>
+        <select name="button_index" id="button_index" required>
+            <option value="0">Player 1</option>
+            <option value="1">Player 2</option>
+            <option value="2">Player 3</option>
+            <option value="3">Player 4</option>
+            <option value="4">Player 5</option>
+            <option value="5">Player 6</option>
         </select>
+
+        <div class="help-text">
+            Button will be assigned to the selected player
+        </div>
 
         <button type="submit">Start Game</button>
     </form>
 </div>
+
+<script>
+function updateButtonOptions() {
+    const nameInputs = document.querySelectorAll('input[name="players[]"]');
+    const select = document.getElementById("button_index");
+
+    nameInputs.forEach((input, i) => {
+        const name = input.value.trim() || `Player ${i + 1}`;
+        if (select.options[i]) {
+            select.options[i].text = name;
+        }
+    });
+}
+
+document.querySelectorAll('input[name="players[]"]').forEach(inp => {
+    inp.addEventListener("input", updateButtonOptions);
+});
+</script>
+
 </body>
 </html>

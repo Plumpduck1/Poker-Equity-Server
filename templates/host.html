@@ -311,7 +311,8 @@ select {
                 <div>{{ player }}</div>
                 <div>
                     {% if game.phase != "WAITING" %}
-                        {{ eq|round(1) }}% — {{ game.hand_ranks[player] }}
+                        {{ (eq or 0)|round(1) }}% — {{ game.hand_ranks.get(player, "") }}
+
                     {% else %}
                         <span class="muted">—</span>
                     {% endif %}
