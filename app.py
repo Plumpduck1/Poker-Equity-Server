@@ -12,15 +12,16 @@ RANKS = "23456789TJQKA"
 SUITS = "cdhs"
 
 
+def fresh_deck():
+    return [f"{r}{s}" for r in RANKS for s in SUITS]
+
+
 def get_positions(players, button_index):
     """
-    Correct 6-max position mapping.
+    Correct 6-max position mapping (BTN-based).
     players = fixed seat order (clockwise)
     button_index = index of BTN in players
     """
-    pos_map = {}
-    n = len(players)
-
     mapping = {
         0: "BTN",
         1: "SB",
@@ -30,16 +31,12 @@ def get_positions(players, button_index):
         5: "CO",
     }
 
+    pos_map = {}
     for offset, pos in mapping.items():
-        seat = (button_index + offset) % n
+        seat = (button_index + offset) % 6
         pos_map[players[seat]] = pos
 
     return pos_map
-
-
-
-def fresh_deck():
-    return [f"{r}{s}" for r in RANKS for s in SUITS]
 
 
 # -----------------------------
@@ -94,12 +91,11 @@ def deal_hole_cards():
     game_state["hands"] = hands
     game_state["phase"] = "PREFLOP"
 
-    # ALWAYS initialize equity fields
-    num_players = len(game_state["players"])
-    game_state["equities"] = [0.0] * num_players
+    # Initialize equity fields safely
+    n = len(game_state["players"])
+    game_state["equities"] = [0.0] * n
     game_state["tie_probability"] = 0.0
     game_state["hand_ranks"] = {p: "" for p in game_state["players"]}
-
 
 
 def deal_flop():
@@ -128,14 +124,15 @@ def start_new_game(players, button_index):
     return {
         "hide_equity": False,
         "players": players,
-        "button_index": button_index,   # index of BTN
-        "phase": "WAITING",              # WAITING | PREFLOP | FLOP | TURN | RIVER
+        "button_index": button_index,
+        "phase": "WAITING",          # WAITING | PREFLOP | FLOP | TURN | RIVER
         "deck": [],
         "deck_pointer": 0,
         "burned": [],
         "hands": {},
         "board": [],
-        "equities": [0] * 6,
+        "equities": [0.0] * len(players),
+        "tie_probability": 0.0,
         "hand_ranks": {p: "" for p in players},
     }
 
@@ -165,32 +162,26 @@ def host_config():
 def host_view():
     global game_state
 
-    
-
     if game_state is None:
         return redirect("/host/config")
 
+    # -----------------------------
+    # POST: actions
+    # -----------------------------
     if request.method == "POST":
         action = request.form.get("action")
-        
-        # -----------------------------
+
         # Dealer privacy toggle
-        # -----------------------------
         if "toggle_privacy" in request.form:
             game_state["hide_equity"] = not game_state.get("hide_equity", False)
             return redirect("/host")
 
-        # -----------------------------
         # Manual BTN override
-        # -----------------------------
         if "set_btn" in request.form:
-            btn_index = int(request.form.get("set_btn"))
-            game_state["button_index"] = btn_index
+            game_state["button_index"] = int(request.form.get("set_btn"))
             return redirect("/host")
 
-        # -----------------------------
         # New Hand
-        # -----------------------------
         if action == "new_hand":
             game_state["button_index"] = (game_state["button_index"] - 1) % 6
             game_state["phase"] = "WAITING"
@@ -199,27 +190,22 @@ def host_view():
             game_state["burned"] = []
             game_state["hands"] = {}
             game_state["board"] = []
-            game_state["equities"] = [0] * 6
+            game_state["equities"] = [0.0] * 6
+            game_state["tie_probability"] = 0.0
             game_state["hand_ranks"] = {p: "" for p in game_state["players"]}
             return redirect("/host")
 
-        # -----------------------------
-        # Scan Deck (simulated)
-        # -----------------------------
+        # Scan Deck
         if action == "scan_deck" and game_state["phase"] == "WAITING":
             scan_full_deck_sim()
             return redirect("/host")
 
-        # -----------------------------
         # Deal Hole Cards
-        # -----------------------------
         if action == "deal_hole" and game_state["phase"] == "WAITING":
             deal_hole_cards()
             return redirect("/host")
 
-        # -----------------------------
         # Deal Next Street
-        # -----------------------------
         if action == "next_street":
             if game_state["phase"] == "PREFLOP":
                 deal_flop()
@@ -235,23 +221,37 @@ def host_view():
     # GET: Equity calculation
     # -----------------------------
     if game_state["phase"] in ("PREFLOP", "FLOP", "TURN", "RIVER"):
-        equities, tie_probability, hand_ranks = calculate_equity_multi(
-            [game_state["hands"][p] for p in game_state["players"]],
-            player_names=game_state["players"],
-            iterations=5000,
-            board_str=game_state["board"],
+
+        # HARD SAFETY CHECK (prevents Treys crash)
+        valid = (
+            game_state["hands"]
+            and all(len(game_state["hands"][p]) == 2 for p in game_state["players"])
+            and len(game_state["board"]) <= 5
         )
 
-        game_state["equities"] = equities
-        game_state["tie_probability"] = tie_probability
-        game_state["hand_ranks"] = hand_ranks
+        if valid:
+            equities, tie_probability, hand_ranks = calculate_equity_multi(
+                [game_state["hands"][p] for p in game_state["players"]],
+                player_names=game_state["players"],
+                iterations=5000,
+                board_str=game_state["board"],
+            )
+
+            game_state["equities"] = equities
+            game_state["tie_probability"] = tie_probability
+            game_state["hand_ranks"] = hand_ranks
+        else:
+            # Safe fallback
+            n = len(game_state["players"])
+            game_state["equities"] = [0.0] * n
+            game_state["tie_probability"] = 0.0
+            game_state["hand_ranks"] = {p: "" for p in game_state["players"]}
+
     else:
-        # SAFE defaults so host never crashes
-        game_state["equities"] = [0.0] * len(game_state["players"])
+        n = len(game_state["players"])
+        game_state["equities"] = [0.0] * n
         game_state["tie_probability"] = 0.0
         game_state["hand_ranks"] = {p: "" for p in game_state["players"]}
-
-
 
     positions = get_positions(
         game_state["players"],
@@ -266,7 +266,6 @@ def host_view():
         positions=positions,
         player_equity_pairs=player_equity_pairs,
     )
-
 
 
 @app.route("/", methods=["GET"])
