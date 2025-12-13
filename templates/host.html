@@ -47,7 +47,7 @@ h3 {
 
 .container {
     display: grid;
-    grid-template-columns: 1.3fr 1fr 1.4fr;
+    grid-template-columns: 1fr 1fr;
     gap: 20px;
 }
 
@@ -194,7 +194,8 @@ button:disabled {
 
 <!-- ================= STATUS ================= -->
 <div class="panel">
-    <div class="status-grid">
+    <div class="status-grid" style="grid-template-columns: repeat(2, 1fr);">
+
         <div class="status-box">
             <div class="status-label">Phase</div>
             <div class="status-value">{{ game.phase }}</div>
@@ -202,32 +203,14 @@ button:disabled {
 
         <div class="status-box">
             <div class="status-label">Button</div>
-            <div class="status-value">{{ game.players[game.button_index] }}</div>
-        </div>
-
-        {% if game.players|length >= 2 %}
-        <div class="status-box">
-            <div class="status-label">Small Blind</div>
             <div class="status-value">
-                {{ game.players[(game.button_index + 1) % game.players|length] }}
+                {{ game.players[game.button_index] }}
             </div>
         </div>
-        {% else %}
-        <div class="status-box"><div class="status-label">SB</div><div class="status-value">—</div></div>
-        {% endif %}
 
-        {% if game.players|length >= 3 %}
-        <div class="status-box">
-            <div class="status-label">Big Blind</div>
-            <div class="status-value">
-                {{ game.players[(game.button_index + 2) % game.players|length] }}
-            </div>
-        </div>
-        {% else %}
-        <div class="status-box"><div class="status-label">BB</div><div class="status-value">—</div></div>
-        {% endif %}
     </div>
 </div>
+
 
 <!-- ================= CONTROLS ================= -->
 <div class="panel controls">
@@ -270,14 +253,6 @@ button:disabled {
                 <span class="player-pos">{{ positions[player] }}</span>
                 <strong>{{ player }}</strong>
             </div>
-
-            <div class="player-row">
-                <div>
-                    <span class="player-pos">{{ positions[player] }}</span>
-                    <strong>{{ player }}</strong>
-                </div>
-            </div>
-
         </div>
     {% endfor %}
 </div>
