@@ -271,15 +271,13 @@ button:disabled {
                 <strong>{{ player }}</strong>
             </div>
 
-            <span class="cards">
-                {% if game.info_mode == "FULL" and game.hands.get(player) %}
-                    {% for c in game.hands[player] %}
-                        <img src="{{ url_for('static', filename='cards/' ~ c ~ '.png') }}">
-                    {% endfor %}
-                {% else %}
-                    <span class="muted">🔒</span>
-                {% endif %}
-            </span>
+            <div class="player-row">
+                <div>
+                    <span class="player-pos">{{ positions[player] }}</span>
+                    <strong>{{ player }}</strong>
+                </div>
+            </div>
+
         </div>
     {% endfor %}
 </div>
@@ -295,27 +293,6 @@ button:disabled {
             <div class="muted">—</div>
         {% endif %}
     </div>
-</div>
-
-<!-- EQUITIES -->
-<div class="column">
-    <h3>Equities</h3>
-
-    {% if game.phase == "WAITING" %}
-        <div class="muted" style="text-align:center;">—</div>
-    {% else %}
-        {% for player in game.players %}
-            <div class="eq-row">
-                <div>{{ player }}</div>
-                <div>
-                    {{ (game.display_equities[loop.index0] or 0)|round(1) }}%
-                    {% if game.info_mode == "FULL" and game.phase == "SHOWDOWN" %}
-                        — {{ game.display_hand_ranks.get(player, "") }}
-                    {% endif %}
-                </div>
-            </div>
-        {% endfor %}
-    {% endif %}
 </div>
 
 </div>
