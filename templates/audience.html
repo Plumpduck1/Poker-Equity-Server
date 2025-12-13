@@ -40,7 +40,7 @@ h1 {
 
 .container {
     display: grid;
-    grid-template-columns: 1.3fr 1fr 1.4fr;
+    grid-template-columns: 1.3fr 1fr 1.6fr;
     gap: 16px;
 }
 
@@ -56,10 +56,12 @@ h1 {
     color: var(--accent);
 }
 
-/* PLAYERS */
+/* ================= PLAYERS ================= */
+
 .player-row {
     display: flex;
     justify-content: space-between;
+    align-items: center;
     margin-bottom: 8px;
 }
 
@@ -69,7 +71,13 @@ h1 {
     margin-right: 6px;
 }
 
-/* BOARD */
+.cards img {
+    width: 34px;
+    margin-left: 4px;
+}
+
+/* ================= BOARD ================= */
+
 .board {
     display: flex;
     justify-content: center;
@@ -81,17 +89,35 @@ h1 {
     margin-right: 4px;
 }
 
-/* EQUITIES */
-.eq-row {
+/* ================= EQUITIES ================= */
+
+/* FULL broadcast: name | bar | % | hand */
+.eq-row.full {
     display: grid;
-    grid-template-columns: 90px 1fr 90px;
-    gap: 8px;
+    grid-template-columns: 90px minmax(120px,1fr) 56px 180px;
+    gap: 10px;
     align-items: center;
     margin-bottom: 8px;
+    padding: 4px 2px;
+}
+
+/* Protected mode: name | BIG bar | % */
+.eq-row.protected {
+    display: grid;
+    grid-template-columns: 90px minmax(220px,1fr) 56px;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 8px;
+    padding: 4px 2px;
 }
 
 .eq-row.leader {
     background: rgba(63,169,245,0.12);
+}
+
+.eq-name {
+    font-weight: 600;
+    white-space: nowrap;
 }
 
 .eq-bar-bg {
@@ -107,20 +133,32 @@ h1 {
     transition: width 0.4s ease;
 }
 
-.muted {
-    color: var(--muted);
-    font-style: italic;
+.eq-pct {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
 }
 
-/* SAFE MODE BADGE */
+.eq-hand {
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+/* ================= SAFE MODE INFO ================= */
+
 .safe-badge {
-    margin-top: 6px;
+    margin-top: 8px;
     padding: 6px;
     border: 1px solid var(--safe);
     color: var(--safe);
     font-size: 11px;
     text-align: center;
     border-radius: 4px;
+}
+
+.muted {
+    color: var(--muted);
+    font-style: italic;
 }
 </style>
 </head>
@@ -135,7 +173,7 @@ h1 {
 <!-- PLAYERS -->
 <div class="panel" id="players-panel">
     <h3>Players</h3>
-    <div class="muted">Waiting for table…</div>
+    <div class="muted">Waiting for host…</div>
 </div>
 
 <!-- BOARD -->
@@ -162,7 +200,6 @@ h1 {
 <script>
 let lastVersion = -1;
 let renderedBoardCount = 0;
-let lastEquities = {};
 
 function derivePositions(players, btn) {
     const labels = ["BTN","SB","BB","UTG","HJ","CO"];
@@ -177,7 +214,16 @@ async function updateGame() {
     const res = await fetch("/game_state");
     const data = await res.json();
 
-    if (!data || data.version === undefined) return;
+    if (!data || !data.players) {
+        document.getElementById("players-panel").innerHTML =
+            "<h3>Players</h3><div class='muted'>Waiting for host to start game…</div>";
+        document.getElementById("board").innerHTML = "";
+        document.getElementById("equity-panel").innerHTML =
+            "<div class='muted'>No hand in progress</div>";
+        document.getElementById("safe-info").innerHTML = "";
+        return;
+    }
+
     if (data.version === lastVersion) return;
     lastVersion = data.version;
 
@@ -189,17 +235,27 @@ async function updateGame() {
     data.players.forEach(p => {
         const row = document.createElement("div");
         row.className = "player-row";
-        row.innerHTML = `
-            <div>
-                <span class="player-pos">${positions[p]}</span>
-                ${p}
-            </div>`;
+
+        const left = document.createElement("div");
+        left.innerHTML = `<span class="player-pos">${positions[p]}</span>${p}`;
+        row.appendChild(left);
+
+        if (data.info_mode === "FULL" && data.hands && data.hands[p]) {
+            const cards = document.createElement("div");
+            cards.className = "cards";
+            data.hands[p].forEach(c => {
+                const img = document.createElement("img");
+                img.src = "/static/cards/" + c + ".png";
+                cards.appendChild(img);
+            });
+            row.appendChild(cards);
+        }
+
         playersPanel.appendChild(row);
     });
 
-    /* BOARD (append only new cards) */
+    /* BOARD */
     const boardEl = document.getElementById("board");
-
     if (data.board.length < renderedBoardCount) {
         boardEl.innerHTML = "";
         renderedBoardCount = 0;
@@ -210,7 +266,6 @@ async function updateGame() {
         img.src = "/static/cards/" + c + ".png";
         boardEl.appendChild(img);
     });
-
     renderedBoardCount = data.board.length;
 
     /* EQUITIES */
@@ -218,7 +273,7 @@ async function updateGame() {
     eqPanel.innerHTML = "";
 
     if (data.phase === "WAITING") {
-        eqPanel.innerHTML = `<div class="muted">No hand in progress</div>`;
+        eqPanel.innerHTML = "<div class='muted'>No hand in progress</div>";
         return;
     }
 
@@ -226,31 +281,49 @@ async function updateGame() {
     const maxEq = Math.max(...equities, 0);
 
     data.players.forEach((p, i) => {
-        const pct = Math.round(equities[i] || 0);
-        const leader = pct === Math.round(maxEq) && maxEq > 0;
+    const pct = Math.round(equities[i] || 0);
+    const leader = pct === Math.round(maxEq) && maxEq > 0;
+    const isProtected = data.info_mode === "DELAYED_EQUITY";
 
-        const row = document.createElement("div");
-        row.className = "eq-row" + (leader ? " leader" : "");
+    const row = document.createElement("div");
+    row.className =
+        (isProtected ? "eq-row protected" : "eq-row full") +
+        (leader ? " leader" : "");
+
+    if (isProtected) {
+        // PROTECTED MODE — NO HAND COLUMN
         row.innerHTML = `
-            <div>${p}</div>
+            <div class="eq-name">${p}</div>
             <div class="eq-bar-bg">
                 <div class="eq-bar-fill" style="width:${pct}%"></div>
             </div>
-            <div style="text-align:right">${pct}%</div>
+            <div class="eq-pct">${pct}%</div>
         `;
-        eqPanel.appendChild(row);
-        lastEquities[p] = pct;
-    });
+    } else {
+        // FULL BROADCAST — SHOW HAND STRENGTH
+        row.innerHTML = `
+            <div class="eq-name">${p}</div>
+            <div class="eq-bar-bg">
+                <div class="eq-bar-fill" style="width:${pct}%"></div>
+            </div>
+            <div class="eq-pct">${pct}%</div>
+            <div class="eq-hand">
+                ${data.display_hand_ranks?.[p] || ""}
+            </div>
+        `;
+    }
 
-    /* SAFE MODE INFO */
+    eqPanel.appendChild(row);
+});
+
+
+    /* Protected info */
     const safeInfo = document.getElementById("safe-info");
     safeInfo.innerHTML = "";
-
     if (data.info_mode === "DELAYED_EQUITY") {
         safeInfo.innerHTML = `
             <div class="safe-badge">
-                🛡️ Protected mode — winning chances shown from the previous round
-                to prevent live information leaks to players
+                🛡️ Protected mode — Winning chances shown one round later
             </div>`;
     }
 }

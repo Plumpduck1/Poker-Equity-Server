@@ -250,25 +250,6 @@ button:disabled {
     </form>
 </div>
 
-
-
-<!-- ================= DEALER PRIVACY ================= -->
-<div class="panel">
-    <form method="POST" style="text-align:center;">
-        <button name="toggle_privacy"
-            class="{% if game.hide_equity %}success{% else %}warning{% endif %}">
-            {% if game.hide_equity %}
-                🔒 Dealer View: HIDDEN (default)
-            {% else %}
-                👁 Dealer View: REVEALED
-            {% endif %}
-        </button>
-    </form>
-    <div class="muted" style="text-align:center; margin-top:6px;">
-        Default is hidden. Use only if dealer needs to verify a hand.
-    </div>
-</div>
-
 <!-- ================= TABLE ================= -->
 <div class="container">
 
@@ -284,7 +265,6 @@ button:disabled {
 
             <span class="cards">
                 {% if game.info_mode == "FULL"
-                      and not game.hide_equity
                       and game.hands.get(player) %}
                     {% for c in game.hands[player] %}
                         <img src="{{ url_for('static', filename='cards/' ~ c ~ '.png') }}">

@@ -208,26 +208,18 @@ button:hover {
         <label for="info_mode">Spectator information level</label>
         <select name="info_mode" id="info_mode">
             <option value="DELAYED_EQUITY" selected>
-                🛡️ Safe Public Mode
-            </option>
-            <option value="EQUITY_ONLY">
-                👍 Live Odds Only
+                🛡️ Protected Mode (Recommended)
             </option>
             <option value="FULL">
-                🎥 Full Broadcast ⚠️
+                🎥 Full Broadcast (Home Games)
             </option>
         </select>
 
+
         <div id="info-safe" class="info-box safe">
-    <strong>Recommended for pubs & tournaments.</strong><br>
+    <strong>Recommended for public spaces & tournaments.</strong><br>
     Spectators see approximate winning chances from the previous round,
     preventing real-time information leaks to players.
-</div>
-
-<div id="info-live" class="info-box" style="display:none;">
-    <strong>Balanced option.</strong><br>
-    Spectators see live winning chances, but no cards.
-    Suitable for casual games where fairness is still important.
 </div>
 
 <div id="info-full" class="info-box warn" style="display:none;">
@@ -261,24 +253,29 @@ document.querySelectorAll('input[name="players[]"]').forEach(inp => {
 function updateInfoTooltip() {
     const mode = document.getElementById("info_mode").value;
 
-    document.getElementById("info-safe").style.display = "none";
-    document.getElementById("info-live").style.display = "none";
-    document.getElementById("info-full").style.display = "none";
+    const safeBox = document.getElementById("info-safe");
+    const fullBox = document.getElementById("info-full");
+
+    // hide both first
+    safeBox.style.display = "none";
+    fullBox.style.display = "none";
 
     if (mode === "DELAYED_EQUITY") {
-        document.getElementById("info-safe").style.display = "block";
-    } else if (mode === "EQUITY_ONLY") {
-        document.getElementById("info-live").style.display = "block";
+        safeBox.style.display = "block";
     } else if (mode === "FULL") {
-        document.getElementById("info-full").style.display = "block";
+        fullBox.style.display = "block";
     }
 }
 
-document.getElementById("info_mode").addEventListener("change", updateInfoTooltip);
+document.getElementById("info_mode").addEventListener(
+    "change",
+    updateInfoTooltip
+);
 
 // ensure correct tooltip on page load
 updateInfoTooltip();
 </script>
+
 
 </body>
 </html>
