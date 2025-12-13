@@ -28,7 +28,7 @@ body {
 }
 
 .config-container {
-    width: 380px;
+    width: 400px;
     background: var(--panel);
     border: 1px solid var(--border);
     padding: 22px 26px;
@@ -37,7 +37,7 @@ body {
 
 h1 {
     text-align: center;
-    margin: 0 0 8px 0;
+    margin: 0 0 6px 0;
     font-size: 18px;
     font-weight: 600;
     color: var(--accent);
@@ -47,17 +47,49 @@ h1 {
     text-align: center;
     font-size: 12px;
     color: var(--muted);
-    margin-bottom: 18px;
+    margin-bottom: 16px;
 }
 
-/* ---------- PLAYER INPUT ---------- */
+/* ---------- PLAYER CONTROLS ---------- */
+
+.player-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.player-header span {
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.player-controls button {
+    background: #0f0f0f;
+    border: 1px solid var(--border);
+    color: var(--text);
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.player-controls button:hover {
+    border-color: var(--accent);
+}
+
+/* ---------- PLAYER INPUTS ---------- */
+
+.players {
+    margin-bottom: 10px;
+}
 
 .row {
     display: grid;
-    grid-template-columns: 48px 1fr;
+    grid-template-columns: 60px 1fr;
     gap: 10px;
     align-items: center;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
 }
 
 .position {
@@ -83,7 +115,7 @@ input[type="text"]:focus {
 
 label {
     display: block;
-    margin-top: 16px;
+    margin-top: 14px;
     margin-bottom: 6px;
     font-size: 12px;
     color: var(--muted);
@@ -108,7 +140,6 @@ select:focus {
     color: var(--muted);
     margin-top: 6px;
     text-align: center;
-    line-height: 1.4;
 }
 
 /* ---------- INFO BOX ---------- */
@@ -132,7 +163,7 @@ select:focus {
 
 /* ---------- SUBMIT ---------- */
 
-button {
+button.start {
     width: 100%;
     margin-top: 18px;
     padding: 10px;
@@ -144,7 +175,7 @@ button {
     cursor: pointer;
 }
 
-button:hover {
+button.start:hover {
     filter: brightness(1.05);
 }
 </style>
@@ -158,50 +189,24 @@ button:hover {
 
     <form method="POST">
 
+        <!-- PLAYER COUNT -->
+        <div class="player-header">
+            <span>Players</span>
+            <div class="player-controls">
+                <button type="button" onclick="removePlayer()">−</button>
+                <button type="button" onclick="addPlayer()">+</button>
+            </div>
+        </div>
+
         <!-- PLAYERS -->
-        <div class="row">
-            <div class="position">UTG</div>
-            <input type="text" name="players[]" required>
-        </div>
-
-        <div class="row">
-            <div class="position">HJ</div>
-            <input type="text" name="players[]" required>
-        </div>
-
-        <div class="row">
-            <div class="position">CO</div>
-            <input type="text" name="players[]" required>
-        </div>
-
-        <div class="row">
-            <div class="position">BTN</div>
-            <input type="text" name="players[]" required>
-        </div>
-
-        <div class="row">
-            <div class="position">SB</div>
-            <input type="text" name="players[]" required>
-        </div>
-
-        <div class="row">
-            <div class="position">BB</div>
-            <input type="text" name="players[]" required>
-        </div>
+        <div class="players" id="players"></div>
 
         <!-- BUTTON -->
         <label for="button_index">Dealer button starts on</label>
-        <select name="button_index" id="button_index" required>
-            <option value="0">Player 1</option>
-            <option value="1">Player 2</option>
-            <option value="2">Player 3</option>
-            <option value="3">Player 4</option>
-            <option value="4">Player 5</option>
-            <option value="5">Player 6</option>
-        </select>
+        <select name="button_index" id="button_index" required></select>
 
         <div class="help-text">
-            Button will move automatically each hand
+            Button moves automatically each hand
         </div>
 
         <!-- INFO MODE -->
@@ -215,67 +220,98 @@ button:hover {
             </option>
         </select>
 
-
         <div id="info-safe" class="info-box safe">
-    <strong>Recommended for public spaces & tournaments.</strong><br>
-    Spectators see approximate winning chances from the previous round,
-    preventing real-time information leaks to players.
-</div>
+            <strong>Recommended for public spaces.</strong><br>
+            Winning chances are shown one round later to prevent live information leaks.
+        </div>
 
-<div id="info-full" class="info-box warn" style="display:none;">
-    <strong>Full Broadcast warning.</strong><br>
-    Spectators see all cards and live odds.
-    Do not use in public games where players can see the audience.
-</div>
+        <div id="info-full" class="info-box warn" style="display:none;">
+            <strong>Full Broadcast warning.</strong><br>
+            Spectators see all cards and live odds. Do not use in public games.
+        </div>
 
-
-        <button type="submit">Start Game</button>
+        <button class="start" type="submit">Start Game</button>
     </form>
 </div>
 
 <script>
-function updateButtonOptions() {
-    const nameInputs = document.querySelectorAll('input[name="players[]"]');
-    const select = document.getElementById("button_index");
+const MIN_PLAYERS = 2;
+const MAX_PLAYERS = 10;
 
-    nameInputs.forEach((input, i) => {
-        const name = input.value.trim() || `Player ${i + 1}`;
-        if (select.options[i]) {
-            select.options[i].text = name;
-        }
-    });
+let playerCount = 6;
+
+const POSITION_LABELS = {
+    2: ["BTN","BB"],
+    3: ["BTN","SB","BB"],
+    4: ["BTN","SB","BB","UTG"],
+    5: ["BTN","SB","BB","UTG","CO"],
+    6: ["BTN","SB","BB","UTG","HJ","CO"],
+    7: ["BTN","SB","BB","UTG","UTG+1","HJ","CO"],
+    8: ["BTN","SB","BB","UTG","UTG+1","UTG+2","HJ","CO"],
+    9: ["BTN","SB","BB","UTG","UTG+1","UTG+2","UTG+3","HJ","CO"],
+    10:["BTN","SB","BB","UTG","UTG+1","UTG+2","UTG+3","UTG+4","HJ","CO"],
+};
+
+function renderPlayers() {
+    const container = document.getElementById("players");
+    container.innerHTML = "";
+
+    const labels = POSITION_LABELS[playerCount];
+
+    for (let i = 0; i < playerCount; i++) {
+        const row = document.createElement("div");
+        row.className = "row";
+        row.innerHTML = `
+            <div class="position">${labels[i]}</div>
+            <input type="text" name="players[]" required placeholder="Player ${i + 1}">
+        `;
+        container.appendChild(row);
+    }
+
+    renderButtonOptions();
 }
 
-document.querySelectorAll('input[name="players[]"]').forEach(inp => {
-    inp.addEventListener("input", updateButtonOptions);
-});
+function renderButtonOptions() {
+    const select = document.getElementById("button_index");
+    select.innerHTML = "";
 
-function updateInfoTooltip() {
-    const mode = document.getElementById("info_mode").value;
-
-    const safeBox = document.getElementById("info-safe");
-    const fullBox = document.getElementById("info-full");
-
-    // hide both first
-    safeBox.style.display = "none";
-    fullBox.style.display = "none";
-
-    if (mode === "DELAYED_EQUITY") {
-        safeBox.style.display = "block";
-    } else if (mode === "FULL") {
-        fullBox.style.display = "block";
+    for (let i = 0; i < playerCount; i++) {
+        const opt = document.createElement("option");
+        opt.value = i;
+        opt.textContent = `Player ${i + 1}`;
+        select.appendChild(opt);
     }
 }
 
-document.getElementById("info_mode").addEventListener(
-    "change",
-    updateInfoTooltip
-);
+function addPlayer() {
+    if (playerCount < MAX_PLAYERS) {
+        playerCount++;
+        renderPlayers();
+    }
+}
 
-// ensure correct tooltip on page load
+function removePlayer() {
+    if (playerCount > MIN_PLAYERS) {
+        playerCount--;
+        renderPlayers();
+    }
+}
+
+function updateInfoTooltip() {
+    const mode = document.getElementById("info_mode").value;
+    document.getElementById("info-safe").style.display =
+        mode === "DELAYED_EQUITY" ? "block" : "none";
+    document.getElementById("info-full").style.display =
+        mode === "FULL" ? "block" : "none";
+}
+
+document.getElementById("info_mode")
+    .addEventListener("change", updateInfoTooltip);
+
+// initial render
+renderPlayers();
 updateInfoTooltip();
 </script>
-
 
 </body>
 </html>

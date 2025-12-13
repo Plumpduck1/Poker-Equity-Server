@@ -3,7 +3,7 @@ import os
 import random
 import sqlite3
 
-from equity import calculate_equity_multi
+from equity import calculate_equity_multi  # (optionally also import describe_hand if you want)
 from treys import Evaluator, Card
 
 app = Flask(__name__)
@@ -15,6 +15,7 @@ app = Flask(__name__)
 INFO_FULL = "FULL"               # live equities + hole cards (home games)
 INFO_DELAYED = "DELAYED_EQUITY"  # 1-street delayed equities + no hole cards (public)
 
+# "previous street" mapping (used by protected mode)
 PHASE_BACK = {
     "PREFLOP": None,
     "FLOP": "PREFLOP",
@@ -22,6 +23,8 @@ PHASE_BACK = {
     "RIVER": "TURN",
     "SHOWDOWN": "RIVER",
 }
+
+STREETS = ("PREFLOP", "FLOP", "TURN", "RIVER", "SHOWDOWN")
 
 # =============================
 # Database
@@ -54,9 +57,55 @@ SUITS = "cdhs"
 def fresh_deck():
     return [f"{r}{s}" for r in RANKS for s in SUITS]
 
+# Position labels per table size (2–10)
+POSITION_MAP = {
+    2: ["BTN", "BB"],
+    3: ["BTN", "SB", "BB"],
+    4: ["BTN", "SB", "BB", "UTG"],
+    5: ["BTN", "SB", "BB", "UTG", "CO"],
+    6: ["BTN", "SB", "BB", "UTG", "HJ", "CO"],
+    7: ["BTN", "SB", "BB", "UTG", "UTG+1", "HJ", "CO"],
+    8: ["BTN", "SB", "BB", "UTG", "UTG+1", "UTG+2", "HJ", "CO"],
+    9: ["BTN", "SB", "BB", "UTG", "UTG+1", "UTG+2", "UTG+3", "HJ", "CO"],
+    10:["BTN", "SB", "BB", "UTG", "UTG+1", "UTG+2", "UTG+3", "UTG+4", "HJ", "CO"],
+}
+
 def get_positions(players, button_index):
-    labels = ["BTN", "SB", "BB", "UTG", "HJ", "CO"]
-    return {players[(button_index + i) % 6]: labels[i] for i in range(6)}
+    n = len(players)
+    labels = POSITION_MAP.get(n)
+    if not labels:
+        # Fallback (should never happen if we enforce 2–10)
+        labels = ["BTN"] + [f"Seat{i}" for i in range(2, n + 1)]
+
+    return {
+        players[(button_index + i) % n]: labels[i]
+        for i in range(n)
+    }
+
+def iterations_for(players_count: int, phase: str) -> int:
+    """
+    Adaptive Monte Carlo iterations:
+    - More players => fewer iterations to keep responsiveness
+    - Later streets => fewer iterations (less unknown, lower variance)
+    """
+    n = max(2, int(players_count))
+
+    # Base scaled by players (heads-up can afford more)
+    base = 2200  # tweakable
+    iters = int(base / (n ** 0.9))  # gentle decay
+
+    # Street multiplier (later streets can be lower)
+    mult = {
+        "PREFLOP": 1.0,
+        "FLOP": 0.75,
+        "TURN": 0.55,
+        "RIVER": 0.40,
+    }.get(phase, 0.60)
+
+    iters = int(iters * mult)
+
+    # Clamp to sane limits
+    return max(200, min(2000, iters))
 
 # =============================
 # Global state (single table MVP)
@@ -92,12 +141,13 @@ def burn_card():
     game_state["burned"].append(scan_next_card())
 
 def deal_hole_cards():
+    n = len(game_state["players"])
     hands = {p: [] for p in game_state["players"]}
-    start = (game_state["button_index"] + 1) % 6
+    start = (game_state["button_index"] + 1) % n  # first card to SB (or next seat)
 
     for _ in range(2):
-        for i in range(6):
-            p = game_state["players"][(start + i) % 6]
+        for i in range(n):
+            p = game_state["players"][(start + i) % n]
             hands[p].append(scan_next_card())
 
     game_state["hands"] = hands
@@ -119,10 +169,15 @@ def deal_river():
     game_state["phase"] = "RIVER"
 
 # =============================
-# Showdown (deterministic)
+# Showdown (deterministic winner)
 # =============================
 
 def resolve_showdown(game):
+    """
+    Deterministic final result:
+    winner(s) get 100% split.
+    This is safe to reveal at hand end in both modes.
+    """
     evaluator = Evaluator()
     board = [Card.new(c) for c in game["board"]]
 
@@ -135,12 +190,7 @@ def resolve_showdown(game):
     winners = [p for p, s in scores.items() if s == best]
 
     share = 100.0 / len(winners)
-
-    game["display_equities"] = [
-        share if p in winners else 0.0
-        for p in game["players"]
-    ]
-
+    game["display_equities"] = [share if p in winners else 0.0 for p in game["players"]]
     game["tie_probability"] = 100.0 if len(winners) > 1 else 0.0
 
 # =============================
@@ -148,6 +198,7 @@ def resolve_showdown(game):
 # =============================
 
 def start_new_game(players, button_index, info_mode, manual_button=False):
+    n = len(players)
     return {
         "version": 0,
 
@@ -166,10 +217,10 @@ def start_new_game(players, button_index, info_mode, manual_button=False):
 
         # equity system
         "equity_by_phase": {},          # cache per phase
-        "last_completed_phase": None,   # ✅ REQUIRED for delayed mode
-        "display_equities": [0] * 6,
+        "last_completed_phase": None,   # for delayed mode
+        "display_equities": [0.0] * n,
         "display_hand_ranks": {},
-        "tie_probability": 0,
+        "tie_probability": 0.0,
     }
 
 # =============================
@@ -180,23 +231,16 @@ def resolve_display_info(game):
     phase = game["phase"]
     mode = game["info_mode"]
 
-    # FULL BROADCAST → live equity
+    # FULL BROADCAST → live equity for this phase
     if mode == INFO_FULL:
         return game["equity_by_phase"].get(phase)
 
-    # PROTECTED MODE → delayed equity
+    # PROTECTED MODE → 1-street delayed
     if mode == INFO_DELAYED:
-        last = game.get("last_completed_phase")
-        if not last:
-            return None
-
-        # Never show current street equity
-        if last == phase:
-            prev = PHASE_BACK.get(last)
-            return game["equity_by_phase"].get(prev)
-
-        # Show the most recently completed street
-        return game["equity_by_phase"].get(last)
+        prev = PHASE_BACK.get(phase)
+        if not prev:
+            return None  # nothing to show yet at PREFLOP
+        return game["equity_by_phase"].get(prev)
 
     return None
 
@@ -209,12 +253,19 @@ def host_config():
     global game_state
 
     if request.method == "POST":
-        players = request.form.getlist("players[]")
+        players = [p.strip() for p in request.form.getlist("players[]")]
         button_index = int(request.form["button_index"])
         info_mode = request.form.get("info_mode", INFO_DELAYED)
 
-        if len(players) != 6 or any(p.strip() == "" for p in players):
-            return "Must enter exactly 6 players", 400
+        # enforce 2–10 players
+        if len(players) < 2 or len(players) > 10 or any(p == "" for p in players):
+            return "Must enter between 2 and 10 players", 400
+
+        if info_mode not in (INFO_FULL, INFO_DELAYED):
+            info_mode = INFO_DELAYED
+
+        n = len(players)
+        button_index = button_index % n
 
         game_state = start_new_game(players, button_index, info_mode)
 
@@ -234,13 +285,15 @@ def host_view():
     if game_state is None:
         return redirect("/host/config")
 
+    n = len(game_state["players"])
+
     # ---------- POST controls ----------
     if request.method == "POST":
         action = request.form.get("action")
 
-        # Misdeal / force button
+        # Misdeal / force button to a specific seat
         if "force_button" in request.form:
-            new_btn = int(request.form["force_button"])
+            new_btn = int(request.form["force_button"]) % n
 
             game_state = start_new_game(
                 game_state["players"],
@@ -254,16 +307,16 @@ def host_view():
             bump_version()
             return redirect("/host")
 
-        # Main flow button
+        # Main flow button (Next Street / Showdown / Next Hand)
         if action == "advance":
+            phase = game_state["phase"]
 
-            if game_state["phase"] in ("WAITING", "SHOWDOWN"):
-
+            if phase in ("WAITING", "SHOWDOWN"):
                 # decide whether to rotate button
                 if game_state.get("manual_button"):
                     next_btn = game_state["button_index"]
                 else:
-                    next_btn = (game_state["button_index"] - 1) % 6
+                    next_btn = (game_state["button_index"] - 1) % n
 
                 game_state = start_new_game(
                     game_state["players"],
@@ -275,16 +328,13 @@ def host_view():
                 scan_full_deck_sim()
                 deal_hole_cards()
 
-            elif game_state["phase"] == "PREFLOP":
+            elif phase == "PREFLOP":
                 deal_flop()
-
-            elif game_state["phase"] == "FLOP":
+            elif phase == "FLOP":
                 deal_turn()
-
-            elif game_state["phase"] == "TURN":
+            elif phase == "TURN":
                 deal_river()
-
-            elif game_state["phase"] == "RIVER":
+            elif phase == "RIVER":
                 game_state["phase"] = "SHOWDOWN"
 
             bump_version()
@@ -295,30 +345,31 @@ def host_view():
     # ---------- GET: equity / showdown resolution ----------
     phase = game_state["phase"]
 
-    # Track whether public display changes (to bump version only when needed)
-    prev_display = list(game_state.get("display_equities", [0] * 6))
-    prev_tie = float(game_state.get("tie_probability", 0))
+    prev_display = list(game_state.get("display_equities", [0.0] * n))
+    prev_tie = float(game_state.get("tie_probability", 0.0))
 
+    # SHOWDOWN: deterministic final
     if phase == "SHOWDOWN":
         resolve_showdown(game_state)
 
-        # cache showdown too (useful for FULL mode consistency)
+        # Cache showdown result for FULL mode consistency (optional)
         game_state["equity_by_phase"][phase] = {
             "equities": list(game_state["display_equities"]),
             "hand_ranks": dict(game_state.get("display_hand_ranks", {})),
-            "tie_probability": game_state["tie_probability"],
+            "tie_probability": float(game_state["tie_probability"]),
         }
 
-        # mark showdown as completed for delayed logic
         game_state["last_completed_phase"] = "SHOWDOWN"
 
+    # NORMAL STREETS: Monte Carlo (cached per street)
     elif phase in ("PREFLOP", "FLOP", "TURN", "RIVER"):
-        # compute + cache equity once per phase
         if phase not in game_state["equity_by_phase"]:
+            iters = iterations_for(n, phase)
+
             equities, tie_prob, hand_ranks = calculate_equity_multi(
                 [game_state["hands"][p] for p in game_state["players"]],
                 player_names=game_state["players"],
-                iterations=500,
+                iterations=iters,
                 board_str=game_state["board"],
             )
 
@@ -328,33 +379,29 @@ def host_view():
                 "tie_probability": tie_prob,
             }
 
-            # ✅ THIS was missing in your code
+            # mark this street as completed (useful for debugging / future)
             game_state["last_completed_phase"] = phase
 
-        # resolve what can be shown publicly/host display-equity
         info = resolve_display_info(game_state)
         if info:
-            game_state["display_equities"] = info["equities"]
-            game_state["display_hand_ranks"] = info.get("hand_ranks", {})
-            game_state["tie_probability"] = info.get("tie_probability", 0)
+            game_state["display_equities"] = list(info.get("equities", [0.0] * n))
+            game_state["display_hand_ranks"] = dict(info.get("hand_ranks", {}))
+            game_state["tie_probability"] = float(info.get("tie_probability", 0.0))
         else:
-            game_state["display_equities"] = [0] * 6
+            game_state["display_equities"] = [0.0] * n
             game_state["display_hand_ranks"] = {}
-            game_state["tie_probability"] = 0
+            game_state["tie_probability"] = 0.0
 
     else:
-        game_state["display_equities"] = [0] * 6
+        game_state["display_equities"] = [0.0] * n
         game_state["display_hand_ranks"] = {}
-        game_state["tie_probability"] = 0
+        game_state["tie_probability"] = 0.0
 
-    # If delayed equities became available without a POST action, bump version now
+    # If display changed due to first-time equity compute (no POST), bump version
     if game_state["display_equities"] != prev_display or game_state["tie_probability"] != prev_tie:
         bump_version()
 
-    positions = get_positions(
-        game_state["players"],
-        game_state["button_index"],
-    )
+    positions = get_positions(game_state["players"], game_state["button_index"])
 
     return render_template(
         "host.html",
@@ -364,10 +411,8 @@ def host_view():
 
 @app.route("/")
 def audience_view():
-    # Always render the page
-    # Frontend will handle "not configured" state
+    # Always render; frontend handles "waiting for host"
     return render_template("audience.html", game=game_state)
-
 
 @app.route("/game_state")
 def game_state_json():
@@ -376,19 +421,14 @@ def game_state_json():
 
     public = dict(game_state)
 
-    # PROTECTED MODE — hide sensitive info
+    # Protected mode: do NOT leak hole cards or hand ranks
     if game_state["info_mode"] == INFO_DELAYED:
         public["hands"] = {}
         public["display_hand_ranks"] = {}
 
-    # FULL BROADCAST — allow everything
-    elif game_state["info_mode"] == INFO_FULL:
-        # hands are already in game_state
-        # display_hand_ranks already populated
-        pass
-
+    # Full broadcast: allow hole cards + hand ranks
+    # (Audience JS can show them when info_mode === "FULL")
     return public
-
 
 # =============================
 # Run

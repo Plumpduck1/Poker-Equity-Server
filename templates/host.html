@@ -142,7 +142,7 @@ button:disabled {
     font-style: italic;
 }
 
-/* ---------- DROPDOWN (THEMED) ---------- */
+/* DROPDOWN */
 
 .override select {
     background: #202634;
@@ -153,12 +153,10 @@ button:disabled {
     font-size: 13px;
     border-radius: 4px;
     appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
     cursor: pointer;
+    padding-right: 28px;
 }
 
-/* arrow replacement */
 .override select {
     background-image:
         linear-gradient(45deg, transparent 50%, var(--muted) 50%),
@@ -166,9 +164,8 @@ button:disabled {
     background-position:
         calc(100% - 18px) calc(50% - 3px),
         calc(100% - 12px) calc(50% - 3px);
-    background-size: 6px 6px, 6px 6px;
+    background-size: 6px 6px;
     background-repeat: no-repeat;
-    padding-right: 28px;
 }
 
 .override select:focus {
@@ -176,7 +173,6 @@ button:disabled {
     border-color: var(--accent);
 }
 
-/* dropdown options (browser-limited but helps) */
 .override option {
     background: #202634;
     color: var(--text);
@@ -189,7 +185,6 @@ button:disabled {
 .override:hover {
     opacity: 1;
 }
-
 </style>
 </head>
 
@@ -204,18 +199,33 @@ button:disabled {
             <div class="status-label">Phase</div>
             <div class="status-value">{{ game.phase }}</div>
         </div>
+
         <div class="status-box">
             <div class="status-label">Button</div>
             <div class="status-value">{{ game.players[game.button_index] }}</div>
         </div>
+
+        {% if game.players|length >= 2 %}
         <div class="status-box">
             <div class="status-label">Small Blind</div>
-            <div class="status-value">{{ game.players[(game.button_index + 1) % 6] }}</div>
+            <div class="status-value">
+                {{ game.players[(game.button_index + 1) % game.players|length] }}
+            </div>
         </div>
+        {% else %}
+        <div class="status-box"><div class="status-label">SB</div><div class="status-value">—</div></div>
+        {% endif %}
+
+        {% if game.players|length >= 3 %}
         <div class="status-box">
             <div class="status-label">Big Blind</div>
-            <div class="status-value">{{ game.players[(game.button_index + 2) % 6] }}</div>
+            <div class="status-value">
+                {{ game.players[(game.button_index + 2) % game.players|length] }}
+            </div>
         </div>
+        {% else %}
+        <div class="status-box"><div class="status-label">BB</div><div class="status-value">—</div></div>
+        {% endif %}
     </div>
 </div>
 
@@ -239,12 +249,10 @@ button:disabled {
             <select name="force_button">
                 <option disabled selected>Misdeal: move button to…</option>
                 {% for p in game.players %}
-                    <option value="{{ loop.index0 }}">
-                        {{ p }}
-                    </option>
+                    <option value="{{ loop.index0 }}">{{ p }}</option>
                 {% endfor %}
             </select>
-            <button class="warning">Apply</button>
+            <button class="warning" type="submit">Apply</button>
         </div>
 
     </form>
@@ -264,8 +272,7 @@ button:disabled {
             </div>
 
             <span class="cards">
-                {% if game.info_mode == "FULL"
-                      and game.hands.get(player) %}
+                {% if game.info_mode == "FULL" and game.hands.get(player) %}
                     {% for c in game.hands[player] %}
                         <img src="{{ url_for('static', filename='cards/' ~ c ~ '.png') }}">
                     {% endfor %}
@@ -301,13 +308,9 @@ button:disabled {
             <div class="eq-row">
                 <div>{{ player }}</div>
                 <div>
-                    {% if game.display_equities %}
-                        {{ (game.display_equities[loop.index0] or 0)|round(1) }}%
-                        {% if game.info_mode == "FULL" and game.phase == "SHOWDOWN" %}
-                            — {{ game.display_hand_ranks.get(player, "") }}
-                        {% endif %}
-                    {% else %}
-                        <span class="muted">—</span>
+                    {{ (game.display_equities[loop.index0] or 0)|round(1) }}%
+                    {% if game.info_mode == "FULL" and game.phase == "SHOWDOWN" %}
+                        — {{ game.display_hand_ranks.get(player, "") }}
                     {% endif %}
                 </div>
             </div>
