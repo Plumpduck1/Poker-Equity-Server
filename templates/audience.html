@@ -2,9 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-
-<!-- CRITICAL FOR MOBILE -->
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <title>Poker Equity – Audience</title>
 
@@ -16,13 +14,8 @@
     --text: #eaeaea;
     --muted: #999;
     --accent: #3fa9f5;
+    --safe: #2ecc71;
 }
-
-* {
-    box-sizing: border-box;
-}
-
-/* ================= BODY ================= */
 
 body {
     margin: 0;
@@ -34,22 +27,16 @@ body {
     justify-content: center;
 }
 
-/* ================= PAGE WRAPPER ================= */
-
 .page {
     width: 100%;
-    max-width: 1100px;   /* prevents stretching on large screens */
+    max-width: 1100px;
 }
-
-/* ================= HEADER ================= */
 
 h1 {
     text-align: center;
-    margin: 0 0 16px 0;
+    margin-bottom: 16px;
     font-weight: 600;
 }
-
-/* ================= LAYOUT ================= */
 
 .container {
     display: grid;
@@ -57,57 +44,35 @@ h1 {
     gap: 16px;
 }
 
-/* ================= PANELS ================= */
-
 .panel {
     background: var(--panel);
     border: 1px solid var(--border);
     padding: 12px;
-    width: 100%;
 }
 
 .panel h3 {
     margin: 0 0 10px 0;
     text-align: center;
-    font-weight: 600;
     color: var(--accent);
 }
 
-/* ================= PLAYERS ================= */
-
+/* PLAYERS */
 .player-row {
     display: flex;
     justify-content: space-between;
-    align-items: center;
     margin-bottom: 8px;
-}
-
-.player-left {
-    display: flex;
-    align-items: center;
-    gap: 6px;
 }
 
 .player-pos {
     font-size: 12px;
     color: var(--muted);
+    margin-right: 6px;
 }
 
-.player-name {
-    font-weight: 600;
-}
-
-.cards img {
-    width: 40px;
-    margin-left: 2px;
-}
-
-/* ================= BOARD ================= */
-
+/* BOARD */
 .board {
     display: flex;
     justify-content: center;
-    align-items: center;
     min-height: 48px;
 }
 
@@ -116,24 +81,17 @@ h1 {
     margin-right: 4px;
 }
 
-/* ================= EQUITIES ================= */
-
+/* EQUITIES */
 .eq-row {
     display: grid;
-    grid-template-columns: 90px 1fr 150px;
+    grid-template-columns: 90px 1fr 90px;
     gap: 8px;
     align-items: center;
     margin-bottom: 8px;
-    padding: 4px;
 }
 
 .eq-row.leader {
     background: rgba(63,169,245,0.12);
-}
-
-.eq-name {
-    font-weight: 600;
-    white-space: nowrap;
 }
 
 .eq-bar-bg {
@@ -145,120 +103,65 @@ h1 {
 
 .eq-bar-fill {
     height: 100%;
-    width: 0%;
     background: linear-gradient(90deg, #3fa9f5, #7cc7ff);
-    transition: width 0.5s ease;
+    transition: width 0.4s ease;
 }
 
-.eq-val {
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-}
-
-.eq-hand {
-    font-size: 12px;
-    color: var(--muted);
-    margin-left: 6px;
-}
-
-/* ================= PULSE ================= */
-
-@keyframes pulse {
-    0% { box-shadow: 0 0 0 rgba(63,169,245,0); }
-    50% { box-shadow: 0 0 8px rgba(63,169,245,0.6); }
-    100% { box-shadow: 0 0 0 rgba(63,169,245,0); }
-}
-
-.eq-bar-fill.pulse {
-    animation: pulse 0.6s ease-out;
-}
-
-/* ================= PLACEHOLDER ================= */
-
-.placeholder {
-    text-align: center;
+.muted {
     color: var(--muted);
     font-style: italic;
 }
 
-/* ================= FOOTER ================= */
-
-.footer {
-    margin-top: 12px;
+/* SAFE MODE BADGE */
+.safe-badge {
+    margin-top: 6px;
+    padding: 6px;
+    border: 1px solid var(--safe);
+    color: var(--safe);
+    font-size: 11px;
     text-align: center;
-    font-size: 12px;
-    color: var(--muted);
-}
-
-/* ================= MOBILE ================= */
-
-@media (max-width: 768px) {
-
-    body {
-        padding: 10px;
-    }
-
-    .container {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-    }
-
-    .cards img {
-        width: 34px;
-    }
-
-    .board img {
-        width: 36px;
-    }
-
-    .eq-row {
-        grid-template-columns: 80px 1fr 120px;
-    }
-
-    h1 {
-        font-size: 18px;
-    }
+    border-radius: 4px;
 }
 </style>
 </head>
 
 <body>
-
 <div class="page">
 
 <h1>Live Poker Equities</h1>
 
 <div class="container">
 
-    <!-- PLAYERS -->
-    <div class="panel" id="players-panel">
-        <h3>Players</h3>
-        <div class="placeholder">Waiting for table…</div>
-    </div>
+<!-- PLAYERS -->
+<div class="panel" id="players-panel">
+    <h3>Players</h3>
+    <div class="muted">Waiting for table…</div>
+</div>
 
-    <!-- BOARD -->
-    <div class="panel" id="board-panel">
-        <h3>Board</h3>
-        <div class="board placeholder">—</div>
-    </div>
+<!-- BOARD -->
+<div class="panel">
+    <h3>Board</h3>
+    <div class="board" id="board"></div>
+</div>
 
-    <!-- EQUITIES -->
-    <div class="panel" id="equity-panel">
-        <h3>Equities</h3>
-        <div class="placeholder">No hand in progress</div>
-    </div>
+<!-- EQUITIES -->
+<div class="panel">
+    <h3>Winning Chances</h3>
+    <div id="equity-panel"></div>
+    <div id="safe-info"></div>
+</div>
 
 </div>
 
-<div class="footer">
-    Cards are scanned once • Display delayed • Spectator view
+<div class="muted" style="text-align:center; margin-top:10px;">
+    Estimated probabilities • Spectator display
 </div>
 
 </div>
 
 <script>
+let lastVersion = -1;
+let renderedBoardCount = 0;
 let lastEquities = {};
 
 function derivePositions(players, btn) {
@@ -273,108 +176,86 @@ function derivePositions(players, btn) {
 async function updateGame() {
     const res = await fetch("/game_state");
     const data = await res.json();
-    if (!data.players) return;
 
-    const positions = derivePositions(data.players, data.button_index);
+    if (!data || data.version === undefined) return;
+    if (data.version === lastVersion) return;
+    lastVersion = data.version;
 
     /* PLAYERS */
     const playersPanel = document.getElementById("players-panel");
     playersPanel.innerHTML = "<h3>Players</h3>";
+    const positions = derivePositions(data.players, data.button_index);
 
     data.players.forEach(p => {
         const row = document.createElement("div");
         row.className = "player-row";
         row.innerHTML = `
-            <div class="player-left">
+            <div>
                 <span class="player-pos">${positions[p]}</span>
-                <span class="player-name">${p}</span>
-            </div>
-        `;
-
-        const cards = document.createElement("span");
-        cards.className = "cards";
-
-        if (data.hands && data.hands[p]) {
-            data.hands[p].forEach(c => {
-                const img = document.createElement("img");
-                img.src = "/static/cards/" + c + ".png";
-                cards.appendChild(img);
-            });
-        }
-
-        row.appendChild(cards);
+                ${p}
+            </div>`;
         playersPanel.appendChild(row);
     });
 
-    /* BOARD */
-    const boardPanel = document.getElementById("board-panel");
-    boardPanel.innerHTML = "<h3>Board</h3>";
-    const board = document.createElement("div");
-    board.className = "board";
+    /* BOARD (append only new cards) */
+    const boardEl = document.getElementById("board");
 
-    if (data.board?.length) {
-        data.board.forEach(c => {
-            const img = document.createElement("img");
-            img.src = "/static/cards/" + c + ".png";
-            board.appendChild(img);
-        });
-    } else {
-        board.classList.add("placeholder");
-        board.textContent = "—";
+    if (data.board.length < renderedBoardCount) {
+        boardEl.innerHTML = "";
+        renderedBoardCount = 0;
     }
 
-    boardPanel.appendChild(board);
+    data.board.slice(renderedBoardCount).forEach(c => {
+        const img = document.createElement("img");
+        img.src = "/static/cards/" + c + ".png";
+        boardEl.appendChild(img);
+    });
+
+    renderedBoardCount = data.board.length;
 
     /* EQUITIES */
     const eqPanel = document.getElementById("equity-panel");
-    eqPanel.innerHTML = "<h3>Equities</h3>";
+    eqPanel.innerHTML = "";
 
-    if (data.phase !== "WAITING") {
-        const maxEq = Math.max(...data.equities);
+    if (data.phase === "WAITING") {
+        eqPanel.innerHTML = `<div class="muted">No hand in progress</div>`;
+        return;
+    }
 
-        data.players.forEach((p, i) => {
-            const pct = Math.round(data.display_equities?.[i] || 0);
+    const equities = data.display_equities || [];
+    const maxEq = Math.max(...equities, 0);
 
-            const leader = data.equities[i] === maxEq && maxEq > 0;
+    data.players.forEach((p, i) => {
+        const pct = Math.round(equities[i] || 0);
+        const leader = pct === Math.round(maxEq) && maxEq > 0;
 
-            const row = document.createElement("div");
-            row.className = "eq-row" + (leader ? " leader" : "");
+        const row = document.createElement("div");
+        row.className = "eq-row" + (leader ? " leader" : "");
+        row.innerHTML = `
+            <div>${p}</div>
+            <div class="eq-bar-bg">
+                <div class="eq-bar-fill" style="width:${pct}%"></div>
+            </div>
+            <div style="text-align:right">${pct}%</div>
+        `;
+        eqPanel.appendChild(row);
+        lastEquities[p] = pct;
+    });
 
-            row.innerHTML = `
-                <div class="eq-name">${p}</div>
-                <div class="eq-bar-bg"><div class="eq-bar-fill"></div></div>
-                <div class="eq-val">${pct}% <span class="eq-hand">${data.hand_ranks[p] || ""}</span></div>
-            `;
+    /* SAFE MODE INFO */
+    const safeInfo = document.getElementById("safe-info");
+    safeInfo.innerHTML = "";
 
-            const fill = row.querySelector(".eq-bar-fill");
-            fill.style.width = pct + "%";
-
-            if (lastEquities[p] !== undefined && lastEquities[p] !== pct) {
-                fill.classList.add("pulse");
-            }
-
-            lastEquities[p] = pct;
-            eqPanel.appendChild(row);
-        });
-
-        if (data.tie_probability > 0) {
-            const t = Math.round(data.tie_probability);
-            const row = document.createElement("div");
-            row.className = "eq-row";
-            row.innerHTML = `
-                <div class="eq-name">Split Pot</div>
-                <div class="eq-bar-bg"><div class="eq-bar-fill" style="width:${t}%"></div></div>
-                <div class="eq-val">${t}%</div>
-            `;
-            eqPanel.appendChild(row);
-        }
-    } else {
-        eqPanel.innerHTML += `<div class="placeholder">Waiting for hand…</div>`;
-        lastEquities = {};
+    if (data.info_mode === "DELAYED_EQUITY") {
+        safeInfo.innerHTML = `
+            <div class="safe-badge">
+                🛡️ Protected mode — winning chances shown from the previous round
+                to prevent live information leaks to players
+            </div>`;
     }
 }
 
-setInterval(updateGame, 1500);
+setInterval(updateGame, 800);
 updateGame();
 </script>
 

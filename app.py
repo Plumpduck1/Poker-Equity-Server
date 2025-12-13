@@ -21,6 +21,7 @@ PHASE_BACK = {
     "FLOP": "PREFLOP",
     "TURN": "FLOP",
     "RIVER": "TURN",
+    "SHOWDOWN": "RIVER",
 }
 
 # =============================
@@ -56,16 +57,19 @@ def fresh_deck():
 
 def get_positions(players, button_index):
     labels = ["BTN", "SB", "BB", "UTG", "HJ", "CO"]
-    return {
-        players[(button_index + i) % 6]: labels[i]
-        for i in range(6)
-    }
+    return {players[(button_index + i) % 6]: labels[i] for i in range(6)}
 
 # =============================
 # Global state (single table MVP)
 # =============================
 
 game_state = None
+
+def bump_version():
+    """Audience will poll /game_state and only update UI if version changes."""
+    global game_state
+    if game_state is not None:
+        game_state["version"] = int(game_state.get("version", 0)) + 1
 
 # =============================
 # Dealing (simulated)
@@ -143,6 +147,8 @@ def resolve_showdown(game):
 
 def start_new_game(players, button_index, info_mode, manual_button=False):
     return {
+        "version": 0,
+
         "info_mode": info_mode,
         "players": players,
         "button_index": button_index,
@@ -200,6 +206,12 @@ def host_config():
             return "Must enter exactly 6 players", 400
 
         game_state = start_new_game(players, button_index, info_mode)
+
+        # Start immediately (so host button shows Next Street)
+        scan_full_deck_sim()
+        deal_hole_cards()   # PREFLOP
+        bump_version()
+
         return redirect("/host")
 
     return render_template("config.html")
@@ -212,16 +224,16 @@ def host_view():
         return redirect("/host/config")
 
     # ---------- POST controls ----------
-
     if request.method == "POST":
         action = request.form.get("action")
 
         # ----- Dealer privacy -----
         if "toggle_privacy" in request.form:
             game_state["hide_equity"] = not game_state["hide_equity"]
+            bump_version()
             return redirect("/host")
 
-       # ----- MISDEAL / FORCE BUTTON -----
+        # ----- MISDEAL / FORCE BUTTON -----
         if "force_button" in request.form:
             new_btn = int(request.form["force_button"])
 
@@ -233,11 +245,9 @@ def host_view():
             )
 
             scan_full_deck_sim()
-            deal_hole_cards()   # 👈 THIS is the key line
-
+            deal_hole_cards()   # immediately back to PREFLOP
+            bump_version()
             return redirect("/host")
-
-
 
         # ----- PRIMARY FLOW -----
         if action == "advance":
@@ -254,12 +264,11 @@ def host_view():
                     game_state["players"],
                     next_btn,
                     game_state["info_mode"],
-                    manual_button=False,  # reset after use
+                    manual_button=False,
                 )
 
                 scan_full_deck_sim()
                 deal_hole_cards()   # -> PREFLOP
-
 
             elif game_state["phase"] == "PREFLOP":
                 deal_flop()
@@ -273,54 +282,56 @@ def host_view():
             elif game_state["phase"] == "RIVER":
                 game_state["phase"] = "SHOWDOWN"
 
+            bump_version()
             return redirect("/host")
 
         return redirect("/host")
 
-
-
     # ---------- GET: equity / showdown resolution ----------
-
     phase = game_state["phase"]
 
-    # --- SHOWDOWN: deterministic result ---
     if phase == "SHOWDOWN":
         resolve_showdown(game_state)
 
-    # --- NORMAL STREETS: Monte Carlo ---
-    elif phase in ("PREFLOP", "FLOP", "TURN", "RIVER"):
-        equities, tie_prob, hand_ranks = calculate_equity_multi(
-            [game_state["hands"][p] for p in game_state["players"]],
-            player_names=game_state["players"],
-            iterations=500,
-            board_str=game_state["board"],
-        )
-
-        # cache equity for this phase
+        # cache showdown too (useful for FULL/EQUITY_ONLY display logic)
         game_state["equity_by_phase"][phase] = {
-            "equities": equities,
-            "hand_ranks": hand_ranks,
-            "tie_probability": tie_prob,
+            "equities": game_state["display_equities"],
+            "hand_ranks": game_state.get("display_hand_ranks", {}),
+            "tie_probability": game_state["tie_probability"],
         }
+
+    elif phase in ("PREFLOP", "FLOP", "TURN", "RIVER"):
+        # Calculate equity ONCE per phase (cache) — makes host snappy
+        if phase not in game_state["equity_by_phase"]:
+            equities, tie_prob, hand_ranks = calculate_equity_multi(
+                [game_state["hands"][p] for p in game_state["players"]],
+                player_names=game_state["players"],
+                iterations=500,
+                board_str=game_state["board"],
+            )
+
+            game_state["equity_by_phase"][phase] = {
+                "equities": equities,
+                "hand_ranks": hand_ranks,
+                "tie_probability": tie_prob,
+            }
 
         # resolve what is allowed to be shown
         info = resolve_display_info(game_state)
         if info:
             game_state["display_equities"] = info["equities"]
-            game_state["display_hand_ranks"] = info["hand_ranks"]
-            game_state["tie_probability"] = info["tie_probability"]
+            game_state["display_hand_ranks"] = info.get("hand_ranks", {})
+            game_state["tie_probability"] = info.get("tie_probability", 0)
         else:
             game_state["display_equities"] = [0] * 6
             game_state["display_hand_ranks"] = {}
             game_state["tie_probability"] = 0
 
-    # --- WAITING or any other state ---
     else:
         game_state["display_equities"] = [0] * 6
         game_state["display_hand_ranks"] = {}
         game_state["tie_probability"] = 0
 
-    # --- positions always safe ---
     positions = get_positions(
         game_state["players"],
         game_state["button_index"],
@@ -331,7 +342,6 @@ def host_view():
         game=game_state,
         positions=positions,
     )
-
 
 @app.route("/")
 def audience_view():
@@ -346,9 +356,13 @@ def game_state_json():
 
     public = dict(game_state)
 
-    if game_state["info_mode"] != INFO_FULL:
-        public["hands"] = {}
-        public["display_hand_ranks"] = {}
+    # Never leak hole cards to audience via this endpoint
+    public["hands"] = {}
+
+    # Use display_equities as the canonical public numbers
+    # (Your audience client should read display_equities)
+    # Keep display_hand_ranks empty publicly (safe)
+    public["display_hand_ranks"] = {}
 
     return public
 
