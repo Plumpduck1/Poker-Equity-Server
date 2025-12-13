@@ -71,16 +71,53 @@ POSITION_MAP = {
 }
 
 def get_positions(players, button_index):
+    """
+    Returns a dict: player_name -> position label
+    Supports 2–10 players with real poker positions.
+    """
     n = len(players)
-    labels = POSITION_MAP.get(n)
-    if not labels:
-        # Fallback (should never happen if we enforce 2–10)
-        labels = ["BTN"] + [f"Seat{i}" for i in range(2, n + 1)]
+    pos = {}
 
-    return {
-        players[(button_index + i) % n]: labels[i]
-        for i in range(n)
-    }
+    if n == 0:
+        return pos
+
+    # Button-relative order
+    order = []
+
+    if n >= 1:
+        order.append("BTN")
+    if n >= 2:
+        order.append("SB")
+    if n >= 3:
+        order.append("BB")
+
+    # Remaining seats after blinds
+    remaining = n - 3
+
+    if remaining > 0:
+        if remaining >= 1:
+            order.append("UTG")
+        if remaining >= 2:
+            order.append("UTG+1")
+        if remaining >= 3:
+            order.append("UTG+2")
+        if remaining >= 4:
+            order.append("EP")
+        if remaining >= 5:
+            order.append("LJ")
+        if remaining >= 6:
+            order.append("HJ")
+        if remaining >= 7:
+            order.append("CO")
+
+    # Trim in case of small tables
+    order = order[:n]
+
+    for i, label in enumerate(order):
+        pos[players[(button_index + i) % n]] = label
+
+    return pos
+
 
 def iterations_for(players_count: int, phase: str) -> int:
     """

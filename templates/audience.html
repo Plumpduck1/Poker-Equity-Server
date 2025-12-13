@@ -238,26 +238,54 @@ let renderedBoardCount = 0;
 function derivePositions(players, btnIndex) {
     const n = players.length;
     const map = {};
-
     if (n === 0) return map;
 
-    map[players[btnIndex]] = "BTN";
-
-    if (n >= 2)
-        map[players[(btnIndex + 1) % n]] = "SB";
-
-    if (n >= 3)
-        map[players[(btnIndex + 2) % n]] = "BB";
-
-    let utgIndex = 0;
-    for (let i = 3; i < n; i++) {
-        const label = utgIndex === 0 ? "UTG" : `UTG+${utgIndex}`;
-        map[players[(btnIndex + i) % n]] = label;
-        utgIndex++;
+    // Order seats clockwise starting at BTN
+    const ordered = [];
+    for (let i = 0; i < n; i++) {
+        ordered.push(players[(btnIndex + i) % n]);
     }
+
+    // Always defined
+    map[ordered[0]] = "BTN";
+
+    if (n === 2) {
+        // Heads-up
+        map[ordered[1]] = "BB";
+        return map;
+    }
+
+    // Blinds
+    map[ordered[1]] = "SB";
+    map[ordered[2]] = "BB";
+
+    // Remaining positions depend on table size
+    const remaining = ordered.slice(3);
+
+    /*
+        Canonical full-ring order (BTN-relative, clockwise after BB):
+        UTG, UTG+1, UTG+2, EP, LJ, HJ, CO
+    */
+    const positionNamesByCount = {
+        3: ["UTG"],
+        4: ["UTG", "CO"],
+        5: ["UTG", "HJ", "CO"],
+        6: ["UTG", "LJ", "HJ", "CO"],
+        7: ["UTG", "UTG+1", "LJ", "HJ", "CO"],
+        8: ["UTG", "UTG+1", "EP", "LJ", "HJ", "CO"],
+        9: ["UTG", "UTG+1", "EP", "LJ", "HJ", "CO"],
+        10:["UTG", "UTG+1", "UTG+2", "EP", "LJ", "HJ", "CO"]
+    };
+
+    const names = positionNamesByCount[n] || [];
+
+    remaining.forEach((player, i) => {
+        map[player] = names[i] || `MP${i+1}`;
+    });
 
     return map;
 }
+
 
 async function updateGame() {
     const res = await fetch("/game_state");

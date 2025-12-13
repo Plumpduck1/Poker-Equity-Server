@@ -241,16 +241,25 @@ const MAX_PLAYERS = 10;
 let playerCount = 6;
 
 const POSITION_LABELS = {
-    2: ["BTN","BB"],
-    3: ["BTN","SB","BB"],
-    4: ["BTN","SB","BB","UTG"],
-    5: ["BTN","SB","BB","UTG","CO"],
-    6: ["BTN","SB","BB","UTG","HJ","CO"],
-    7: ["BTN","SB","BB","UTG","UTG+1","HJ","CO"],
-    8: ["BTN","SB","BB","UTG","UTG+1","UTG+2","HJ","CO"],
-    9: ["BTN","SB","BB","UTG","UTG+1","UTG+2","UTG+3","HJ","CO"],
-    10:["BTN","SB","BB","UTG","UTG+1","UTG+2","UTG+3","UTG+4","HJ","CO"],
+    2:  ["BTN", "BB"],
+
+    3:  ["BTN", "SB", "BB"],
+
+    4:  ["BTN", "SB", "BB", "UTG"],
+
+    5:  ["BTN", "SB", "BB", "UTG", "CO"],
+
+    6:  ["BTN", "SB", "BB", "UTG", "HJ", "CO"],
+
+    7:  ["BTN", "SB", "BB", "UTG", "UTG+1", "HJ", "CO"],
+
+    8:  ["BTN", "SB", "BB", "UTG", "UTG+1", "EP", "HJ", "CO"],
+
+    9:  ["BTN", "SB", "BB", "UTG", "UTG+1", "EP", "LJ", "HJ", "CO"],
+
+    10: ["BTN", "SB", "BB", "UTG", "UTG+1", "UTG+2", "EP", "LJ", "HJ", "CO"],
 };
+
 
 function renderPlayers() {
     const container = document.getElementById("players");
