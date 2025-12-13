@@ -333,7 +333,8 @@ async function updateGame() {
         const maxEq = Math.max(...data.equities);
 
         data.players.forEach((p, i) => {
-            const pct = Math.round(data.equities[i]);
+            const pct = Math.round(data.display_equities?.[i] || 0);
+
             const leader = data.equities[i] === maxEq && maxEq > 0;
 
             const row = document.createElement("div");

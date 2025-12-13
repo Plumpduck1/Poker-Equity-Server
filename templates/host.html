@@ -25,8 +25,6 @@ body {
     color: var(--text);
 }
 
-/* ---------- HEADERS ---------- */
-
 h1 {
     text-align: center;
     margin-bottom: 18px;
@@ -40,8 +38,6 @@ h3 {
     color: var(--accent);
 }
 
-/* ---------- LAYOUT ---------- */
-
 .panel {
     background: var(--panel);
     border: 1px solid var(--border);
@@ -53,7 +49,6 @@ h3 {
     display: grid;
     grid-template-columns: 1.3fr 1fr 1.4fr;
     gap: 20px;
-    align-items: start;
 }
 
 .column {
@@ -62,7 +57,7 @@ h3 {
     padding: 12px;
 }
 
-/* ---------- STATUS ---------- */
+/* STATUS */
 
 .status-grid {
     display: grid;
@@ -86,13 +81,13 @@ h3 {
     font-weight: 600;
 }
 
-/* ---------- CONTROLS ---------- */
+/* CONTROLS */
 
 .controls {
     display: flex;
-    flex-wrap: wrap;
     gap: 8px;
     justify-content: center;
+    flex-wrap: wrap;
 }
 
 button {
@@ -117,23 +112,7 @@ button:disabled {
 .success { border-color: var(--good); }
 .warning { border-color: var(--warn); }
 
-/* ---------- OVERRIDE ---------- */
-
-.override {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 8px;
-}
-
-select {
-    background: #202634;
-    color: var(--text);
-    border: 1px solid var(--border);
-    padding: 6px;
-}
-
-/* ---------- TABLE ---------- */
+/* TABLE */
 
 .player-row {
     display: flex;
@@ -152,8 +131,6 @@ select {
     margin-left: 2px;
 }
 
-/* ---------- EQUITY ---------- */
-
 .eq-row {
     display: flex;
     justify-content: space-between;
@@ -164,6 +141,55 @@ select {
     color: var(--muted);
     font-style: italic;
 }
+
+/* ---------- DROPDOWN (THEMED) ---------- */
+
+.override select {
+    background: #202634;
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 6px 10px;
+    font-family: inherit;
+    font-size: 13px;
+    border-radius: 4px;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    cursor: pointer;
+}
+
+/* arrow replacement */
+.override select {
+    background-image:
+        linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+        linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+    background-position:
+        calc(100% - 18px) calc(50% - 3px),
+        calc(100% - 12px) calc(50% - 3px);
+    background-size: 6px 6px, 6px 6px;
+    background-repeat: no-repeat;
+    padding-right: 28px;
+}
+
+.override select:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+/* dropdown options (browser-limited but helps) */
+.override option {
+    background: #202634;
+    color: var(--text);
+}
+
+.override {
+    opacity: 0.85;
+}
+
+.override:hover {
+    opacity: 1;
+}
+
 </style>
 </head>
 
@@ -179,7 +205,7 @@ select {
             <div class="status-value">{{ game.phase }}</div>
         </div>
         <div class="status-box">
-            <div class="status-label">Button (BTN)</div>
+            <div class="status-label">Button</div>
             <div class="status-value">{{ game.players[game.button_index] }}</div>
         </div>
         <div class="status-box">
@@ -195,124 +221,111 @@ select {
 
 <!-- ================= CONTROLS ================= -->
 <div class="panel controls">
-    <form method="POST">
-        <button class="warning" name="action" value="new_hand">
-            New Hand
+    <form method="POST" style="display:flex; gap:10px; align-items:center;">
+
+        <!-- PRIMARY ACTION -->
+        <button class="success" name="action" value="advance">
+            {% if game.phase in ["WAITING", "SHOWDOWN"] %}
+                New Hand
+            {% elif game.phase == "RIVER" %}
+                Showdown
+            {% else %}
+                Next Street
+            {% endif %}
         </button>
 
-        <button class="primary" name="action" value="scan_deck"
-            {% if game.phase != "WAITING" %}disabled{% endif %}>
-            Scan Deck
-        </button>
+        <!-- MISDEAL / BUTTON MOVE -->
+        <div class="override">
+            <select name="force_button">
+                <option disabled selected>Misdeal: move button to…</option>
+                {% for p in game.players %}
+                    <option value="{{ loop.index0 }}">
+                        {{ p }}
+                    </option>
+                {% endfor %}
+            </select>
+            <button class="warning">Apply</button>
+        </div>
 
-        <button class="success" name="action" value="deal_hole"
-            {% if game.phase != "WAITING" or not game.deck %}disabled{% endif %}>
-            Deal Hole Cards
-        </button>
-
-        <button class="primary" name="action" value="next_street"
-            {% if game.phase not in ["PREFLOP","FLOP","TURN"] %}disabled{% endif %}>
-            Next Street
-        </button>
     </form>
 </div>
+
+
 
 <!-- ================= DEALER PRIVACY ================= -->
 <div class="panel">
     <form method="POST" style="text-align:center;">
         <button name="toggle_privacy"
-                class="{% if game.hide_equity %}warning{% else %}success{% endif %}">
+            class="{% if game.hide_equity %}success{% else %}warning{% endif %}">
             {% if game.hide_equity %}
-                🔒 Dealer Privacy ON (Equities Hidden)
+                🔒 Dealer View: HIDDEN (default)
             {% else %}
-                👁 Show Equities to Dealer
+                👁 Dealer View: REVEALED
             {% endif %}
         </button>
     </form>
     <div class="muted" style="text-align:center; margin-top:6px;">
-        Use when dealer should not see hand strength or equity
-    </div>
-</div>
-
-
-<!-- ================= OVERRIDE ================= -->
-<div class="panel">
-    <form method="POST" class="override">
-        <strong>Manual BTN Override:</strong>
-        <select name="set_btn">
-            {% for p in game.players %}
-                <option value="{{ loop.index0 }}"
-                    {% if loop.index0 == game.button_index %}selected{% endif %}>
-                    {{ p }}
-                </option>
-            {% endfor %}
-        </select>
-        <button>Apply</button>
-    </form>
-    <div class="muted" style="text-align:center; margin-top:6px;">
-        Use only for misdeals or floor rulings
+        Default is hidden. Use only if dealer needs to verify a hand.
     </div>
 </div>
 
 <!-- ================= TABLE ================= -->
 <div class="container">
 
-    <!-- Players -->
-    <div class="column">
-        <h3>Players</h3>
-        {% for player, eq in player_equity_pairs %}
-            <div class="player-row">
-                <div>
-                    <span class="player-pos">{{ positions[player] }}</span>
-                    <strong>{{ player }}</strong>
-                </div>
-                <span class="cards">
-                    {% if game.hide_equity %}
-                        <span class="muted">🔒</span>
-                    {% else %}
-                        {% if game.hands.get(player) %}
-                            {% for c in game.hands[player] %}
-                                <img src="{{ url_for('static', filename='cards/' ~ c ~ '.png') }}">
-                            {% endfor %}
-                        {% else %}
-                            <span class="muted">—</span>
-                        {% endif %}
-                    {% endif %}
-                </span>
-
+<!-- PLAYERS -->
+<div class="column">
+    <h3>Players</h3>
+    {% for player in game.players %}
+        <div class="player-row">
+            <div>
+                <span class="player-pos">{{ positions[player] }}</span>
+                <strong>{{ player }}</strong>
             </div>
-        {% endfor %}
-    </div>
 
-    <!-- Board -->
-    <div class="column">
-        <h3>Board</h3>
-        <div class="cards" style="text-align:center;">
-            {% for c in game.board %}
-                <img src="{{ url_for('static', filename='cards/' ~ c ~ '.png') }}">
-            {% endfor %}
-            {% if not game.board %}
-                <div class="muted">—</div>
-            {% endif %}
+            <span class="cards">
+                {% if game.info_mode == "FULL"
+                      and not game.hide_equity
+                      and game.hands.get(player) %}
+                    {% for c in game.hands[player] %}
+                        <img src="{{ url_for('static', filename='cards/' ~ c ~ '.png') }}">
+                    {% endfor %}
+                {% else %}
+                    <span class="muted">🔒</span>
+                {% endif %}
+            </span>
         </div>
-    </div>
+    {% endfor %}
+</div>
 
-    <!-- Equities -->
+<!-- BOARD -->
+<div class="column">
+    <h3>Board</h3>
+    <div class="cards" style="text-align:center;">
+        {% for c in game.board %}
+            <img src="{{ url_for('static', filename='cards/' ~ c ~ '.png') }}">
+        {% endfor %}
+        {% if not game.board %}
+            <div class="muted">—</div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- EQUITIES -->
 <div class="column">
     <h3>Equities</h3>
 
-    {% if game.hide_equity %}
-        <div class="muted" style="text-align:center; padding:12px;">
-            🔒 Hidden from dealer
-        </div>
+    {% if game.phase == "WAITING" %}
+        <div class="muted" style="text-align:center;">—</div>
     {% else %}
-        {% for player, eq in player_equity_pairs %}
+        {% for player in game.players %}
             <div class="eq-row">
                 <div>{{ player }}</div>
                 <div>
-                    {% if game.phase != "WAITING" %}
-                        {{ (eq or 0)|round(1) }}% — {{ game.hand_ranks.get(player, "") }}
-
+                    {% if game.display_equities %}
+                        {{ (game.display_equities[loop.index0] or 0)|round(1) }}%
+                        {% if game.info_mode == "FULL" and game.phase == "SHOWDOWN" %}
+                            — {{ game.display_hand_ranks.get(player, "") }}
+                        {% endif %}
                     {% else %}
                         <span class="muted">—</span>
                     {% endif %}
@@ -321,7 +334,6 @@ select {
         {% endfor %}
     {% endif %}
 </div>
-
 
 </div>
 

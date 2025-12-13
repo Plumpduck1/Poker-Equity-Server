@@ -12,6 +12,8 @@
     --text: #eaeaea;
     --muted: #888;
     --accent: #3fa9f5;
+    --safe: #2ecc71;
+    --warn: #f39c12;
 }
 
 body {
@@ -26,7 +28,7 @@ body {
 }
 
 .config-container {
-    width: 360px;
+    width: 380px;
     background: var(--panel);
     border: 1px solid var(--border);
     padding: 22px 26px;
@@ -35,7 +37,7 @@ body {
 
 h1 {
     text-align: center;
-    margin: 0 0 18px 0;
+    margin: 0 0 8px 0;
     font-size: 18px;
     font-weight: 600;
     color: var(--accent);
@@ -48,7 +50,7 @@ h1 {
     margin-bottom: 18px;
 }
 
-/* ---------- Seat Rows ---------- */
+/* ---------- PLAYER INPUT ---------- */
 
 .row {
     display: grid;
@@ -77,7 +79,7 @@ input[type="text"]:focus {
     border-color: var(--accent);
 }
 
-/* ---------- Button Selector ---------- */
+/* ---------- SELECTS ---------- */
 
 label {
     display: block;
@@ -92,7 +94,7 @@ select {
     background: #0f0f0f;
     border: 1px solid #333;
     color: var(--text);
-    padding: 6px;
+    padding: 7px;
     font-family: monospace;
 }
 
@@ -106,9 +108,29 @@ select:focus {
     color: var(--muted);
     margin-top: 6px;
     text-align: center;
+    line-height: 1.4;
 }
 
-/* ---------- Submit ---------- */
+/* ---------- INFO BOX ---------- */
+
+.info-box {
+    margin-top: 14px;
+    padding: 10px;
+    border: 1px solid var(--border);
+    background: #101010;
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.info-box.safe {
+    border-color: var(--safe);
+}
+
+.info-box.warn {
+    border-color: var(--warn);
+}
+
+/* ---------- SUBMIT ---------- */
 
 button {
     width: 100%;
@@ -131,11 +153,12 @@ button:hover {
 <body>
 
 <div class="config-container">
-    <h1>6-Max Table Setup</h1>
-    <div class="subtitle">Configure players before dealing</div>
+    <h1>Table Setup</h1>
+    <div class="subtitle">Set players and spectator display options</div>
 
     <form method="POST">
 
+        <!-- PLAYERS -->
         <div class="row">
             <div class="position">UTG</div>
             <input type="text" name="players[]" required>
@@ -166,7 +189,8 @@ button:hover {
             <input type="text" name="players[]" required>
         </div>
 
-        <label for="button_index">Dealer Button starts on</label>
+        <!-- BUTTON -->
+        <label for="button_index">Dealer button starts on</label>
         <select name="button_index" id="button_index" required>
             <option value="0">Player 1</option>
             <option value="1">Player 2</option>
@@ -177,8 +201,41 @@ button:hover {
         </select>
 
         <div class="help-text">
-            Button will be assigned to the selected player
+            Button will move automatically each hand
         </div>
+
+        <!-- INFO MODE -->
+        <label for="info_mode">Spectator information level</label>
+        <select name="info_mode" id="info_mode">
+            <option value="DELAYED_EQUITY" selected>
+                🛡️ Safe Public Mode
+            </option>
+            <option value="EQUITY_ONLY">
+                👍 Live Odds Only
+            </option>
+            <option value="FULL">
+                🎥 Full Broadcast ⚠️
+            </option>
+        </select>
+
+        <div id="info-safe" class="info-box safe">
+    <strong>Recommended for pubs & tournaments.</strong><br>
+    Spectators see approximate winning chances from the previous round,
+    preventing real-time information leaks to players.
+</div>
+
+<div id="info-live" class="info-box" style="display:none;">
+    <strong>Balanced option.</strong><br>
+    Spectators see live winning chances, but no cards.
+    Suitable for casual games where fairness is still important.
+</div>
+
+<div id="info-full" class="info-box warn" style="display:none;">
+    <strong>Full Broadcast warning.</strong><br>
+    Spectators see all cards and live odds.
+    Do not use in public games where players can see the audience.
+</div>
+
 
         <button type="submit">Start Game</button>
     </form>
@@ -200,6 +257,27 @@ function updateButtonOptions() {
 document.querySelectorAll('input[name="players[]"]').forEach(inp => {
     inp.addEventListener("input", updateButtonOptions);
 });
+
+function updateInfoTooltip() {
+    const mode = document.getElementById("info_mode").value;
+
+    document.getElementById("info-safe").style.display = "none";
+    document.getElementById("info-live").style.display = "none";
+    document.getElementById("info-full").style.display = "none";
+
+    if (mode === "DELAYED_EQUITY") {
+        document.getElementById("info-safe").style.display = "block";
+    } else if (mode === "EQUITY_ONLY") {
+        document.getElementById("info-live").style.display = "block";
+    } else if (mode === "FULL") {
+        document.getElementById("info-full").style.display = "block";
+    }
+}
+
+document.getElementById("info_mode").addEventListener("change", updateInfoTooltip);
+
+// ensure correct tooltip on page load
+updateInfoTooltip();
 </script>
 
 </body>
