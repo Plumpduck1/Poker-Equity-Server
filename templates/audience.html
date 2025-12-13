@@ -160,6 +160,96 @@ h1 {
     color: var(--muted);
     font-style: italic;
 }
+
+/* ================= MOBILE OPTIMIZATION ================= */
+@media (max-width: 768px) {
+
+    body {
+        padding: 8px;
+    }
+
+    h1 {
+        font-size: 16px;
+        margin-bottom: 8px;
+    }
+
+    .container {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .panel {
+        padding: 8px;
+    }
+
+    .panel h3 {
+        font-size: 13px;
+        margin-bottom: 6px;
+    }
+
+    /* PLAYERS — compact */
+    .player-row {
+        margin-bottom: 4px;
+        font-size: 13px;
+    }
+
+    .player-pos {
+        font-size: 11px;
+    }
+
+    .cards img {
+        width: 26px;
+        margin-left: 2px;
+    }
+
+    /* BOARD — smaller cards */
+    .board img {
+        width: 34px;
+        margin-right: 3px;
+    }
+
+    /* EQUITIES — priority area */
+    .eq-row.full {
+        grid-template-columns: 70px 1fr 44px 120px;
+        gap: 6px;
+        margin-bottom: 6px;
+    }
+
+    .eq-row.protected {
+        grid-template-columns: 70px 1fr 44px;
+        gap: 6px;
+        margin-bottom: 6px;
+    }
+
+    .eq-name {
+        font-size: 13px;
+    }
+
+    .eq-bar-bg {
+        height: 8px;
+    }
+
+    .eq-pct {
+        font-size: 13px;
+    }
+
+    .eq-hand {
+        font-size: 10px;
+    }
+
+    /* Footer + badges tighter */
+    .safe-badge {
+        font-size: 10px;
+        padding: 4px;
+        margin-top: 6px;
+    }
+
+    .muted {
+        font-size: 10px;
+    }
+}
+
 </style>
 </head>
 
