@@ -14,6 +14,7 @@
     --accent: #3fa9f5;
     --safe: #2ecc71;
     --warn: #f39c12;
+    --error: #e74c3c;
 }
 
 body {
@@ -28,7 +29,7 @@ body {
 }
 
 .config-container {
-    width: 400px;
+    width: 420px;
     background: var(--panel);
     border: 1px solid var(--border);
     padding: 22px 26px;
@@ -48,6 +49,39 @@ h1 {
     font-size: 12px;
     color: var(--muted);
     margin-bottom: 16px;
+}
+
+/* ---------- LOCK SCREEN ---------- */
+
+.lock-icon {
+    font-size: 32px;
+    text-align: center;
+    margin: 12px 0;
+}
+
+.error {
+    color: var(--error);
+    font-size: 12px;
+    text-align: center;
+    margin-bottom: 8px;
+}
+
+.code-input {
+    width: 100%;
+    padding: 10px;
+    text-align: center;
+    font-size: 20px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    background: #0f0f0f;
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: monospace;
+}
+
+.code-input:focus {
+    outline: none;
+    border-color: var(--accent);
 }
 
 /* ---------- PLAYER CONTROLS ---------- */
@@ -86,7 +120,7 @@ h1 {
 
 .row {
     display: grid;
-    grid-template-columns: 60px 1fr;
+    grid-template-columns: 70px 1fr;
     gap: 10px;
     align-items: center;
     margin-bottom: 8px;
@@ -153,13 +187,8 @@ select:focus {
     line-height: 1.4;
 }
 
-.info-box.safe {
-    border-color: var(--safe);
-}
-
-.info-box.warn {
-    border-color: var(--warn);
-}
+.info-box.safe { border-color: var(--safe); }
+.info-box.warn { border-color: var(--warn); }
 
 /* ---------- SUBMIT ---------- */
 
@@ -184,6 +213,34 @@ button.start:hover {
 <body>
 
 <div class="config-container">
+
+{% if require_code %}
+    <!-- ================= LOCKED ================= -->
+    <h1>Table Locked</h1>
+    <div class="subtitle">Enter host code to reconfigure</div>
+
+    <div class="lock-icon">🔒</div>
+
+    {% if error %}
+        <div class="error">{{ error }}</div>
+    {% endif %}
+
+    <form method="POST">
+        <input
+        type="text"
+        name="host_code"
+        placeholder="CODE"
+        maxlength="4"
+        autocomplete="off"
+        autocapitalize="characters"
+        oninput="this.value = this.value.toUpperCase()"
+        />
+
+        <button class="start" type="submit">Unlock</button>
+    </form>
+
+{% else %}
+    <!-- ================= SETUP ================= -->
     <h1>Table Setup</h1>
     <div class="subtitle">Set players and spectator display options</div>
 
@@ -232,34 +289,33 @@ button.start:hover {
 
         <button class="start" type="submit">Start Game</button>
     </form>
+{% endif %}
+
 </div>
 
+{% if not require_code %}
 <script>
 const MIN_PLAYERS = 2;
 const MAX_PLAYERS = 10;
 
 let playerCount = 6;
 
+/*
+Button-relative seat labels.
+These are ONLY for visual guidance on the config screen.
+Authoritative positions are computed server-side.
+*/
 const POSITION_LABELS = {
     2:  ["BTN", "BB"],
-
     3:  ["BTN", "SB", "BB"],
-
     4:  ["BTN", "SB", "BB", "UTG"],
-
     5:  ["BTN", "SB", "BB", "UTG", "CO"],
-
     6:  ["BTN", "SB", "BB", "UTG", "HJ", "CO"],
-
     7:  ["BTN", "SB", "BB", "UTG", "UTG+1", "HJ", "CO"],
-
-    8:  ["BTN", "SB", "BB", "UTG", "UTG+1", "EP", "HJ", "CO"],
-
-    9:  ["BTN", "SB", "BB", "UTG", "UTG+1", "EP", "LJ", "HJ", "CO"],
-
-    10: ["BTN", "SB", "BB", "UTG", "UTG+1", "UTG+2", "EP", "LJ", "HJ", "CO"],
+    8:  ["BTN", "SB", "BB", "UTG", "UTG+1", "UTG+2", "HJ", "CO"],
+    9:  ["BTN", "SB", "BB", "UTG", "UTG+1", "UTG+2", "UTG+3", "HJ", "CO"],
+    10: ["BTN", "SB", "BB", "UTG", "UTG+1", "UTG+2", "UTG+3", "UTG+4", "HJ", "CO"],
 };
-
 
 function renderPlayers() {
     const container = document.getElementById("players");
@@ -321,6 +377,7 @@ document.getElementById("info_mode")
 renderPlayers();
 updateInfoTooltip();
 </script>
+{% endif %}
 
 </body>
 </html>

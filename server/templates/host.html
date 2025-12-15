@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <title>Host – Poker Control</title>
@@ -25,10 +25,41 @@ body {
     color: var(--text);
 }
 
-h1 {
-    text-align: center;
+/* ---------- HEADER ---------- */
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 18px;
+}
+
+h1 {
+    margin: 0;
     font-weight: 600;
+}
+
+.room-code {
+    background: #12151c;
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--accent);
+}
+
+.room-code span {
+    color: var(--muted);
+    margin-right: 6px;
+}
+
+/* ---------- PANELS ---------- */
+
+.panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 14px;
+    margin-bottom: 16px;
 }
 
 h3 {
@@ -38,30 +69,11 @@ h3 {
     color: var(--accent);
 }
 
-.panel {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    padding: 14px;
-    margin-bottom: 16px;
-}
-
-.container {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-}
-
-.column {
-    background: var(--panel-2);
-    border: 1px solid var(--border);
-    padding: 12px;
-}
-
-/* STATUS */
+/* ---------- STATUS ---------- */
 
 .status-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 10px;
     text-align: center;
 }
@@ -81,17 +93,17 @@ h3 {
     font-weight: 600;
 }
 
-/* CONTROLS */
+/* ---------- CONTROLS ---------- */
 
 .controls {
     display: flex;
-    gap: 8px;
+    gap: 10px;
     justify-content: center;
     flex-wrap: wrap;
 }
 
 button {
-    padding: 8px 12px;
+    padding: 8px 14px;
     border: 1px solid var(--border);
     background: #202634;
     color: var(--text);
@@ -103,16 +115,22 @@ button:hover:not(:disabled) {
     background: #2a3245;
 }
 
-button:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-}
-
-.primary { border-color: var(--accent); }
 .success { border-color: var(--good); }
 .warning { border-color: var(--warn); }
 
-/* TABLE */
+/* ---------- TABLE ---------- */
+
+.container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.column {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    padding: 12px;
+}
 
 .player-row {
     display: flex;
@@ -123,18 +141,12 @@ button:disabled {
 
 .player-pos {
     color: var(--muted);
-    margin-right: 4px;
+    margin-right: 6px;
 }
 
 .cards img {
     width: 44px;
-    margin-left: 2px;
-}
-
-.eq-row {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 6px;
+    margin-left: 3px;
 }
 
 .muted {
@@ -142,7 +154,12 @@ button:disabled {
     font-style: italic;
 }
 
-/* DROPDOWN */
+/* ---------- DROPDOWN ---------- */
+
+.override {
+    display: flex;
+    gap: 6px;
+}
 
 .override select {
     background: #202634;
@@ -151,50 +168,26 @@ button:disabled {
     padding: 6px 10px;
     font-family: inherit;
     font-size: 13px;
-    border-radius: 4px;
-    appearance: none;
     cursor: pointer;
-    padding-right: 28px;
-}
-
-.override select {
-    background-image:
-        linear-gradient(45deg, transparent 50%, var(--muted) 50%),
-        linear-gradient(135deg, var(--muted) 50%, transparent 50%);
-    background-position:
-        calc(100% - 18px) calc(50% - 3px),
-        calc(100% - 12px) calc(50% - 3px);
-    background-size: 6px 6px;
-    background-repeat: no-repeat;
-}
-
-.override select:focus {
-    outline: none;
-    border-color: var(--accent);
-}
-
-.override option {
-    background: #202634;
-    color: var(--text);
-}
-
-.override {
-    opacity: 0.85;
-}
-
-.override:hover {
-    opacity: 1;
 }
 </style>
 </head>
 
 <body>
 
-<h1>Host Control – Poker Equity</h1>
+<!-- ================= HEADER ================= -->
+<div class="header">
+    <h1>Host Control – Poker Equity</h1>
+
+    <div class="room-code">
+        <span>Host code:</span>
+        <strong>{{ game.host_code }}</strong>
+    </div>
+</div>
 
 <!-- ================= STATUS ================= -->
 <div class="panel">
-    <div class="status-grid" style="grid-template-columns: repeat(2, 1fr);">
+    <div class="status-grid">
 
         <div class="status-box">
             <div class="status-label">Phase</div>
@@ -211,10 +204,9 @@ button:disabled {
     </div>
 </div>
 
-
 <!-- ================= CONTROLS ================= -->
-<div class="panel controls">
-    <form method="POST" style="display:flex; gap:10px; align-items:center;">
+<div class="panel">
+    <form method="POST" class="controls">
 
         <!-- PRIMARY ACTION -->
         <button class="success" name="action" value="advance">
@@ -244,31 +236,31 @@ button:disabled {
 <!-- ================= TABLE ================= -->
 <div class="container">
 
-<!-- PLAYERS -->
-<div class="column">
-    <h3>Players</h3>
-    {% for player in game.players %}
-        <div class="player-row">
-            <div>
-                <span class="player-pos">{{ positions[player] }}</span>
-                <strong>{{ player }}</strong>
+    <!-- PLAYERS -->
+    <div class="column">
+        <h3>Players</h3>
+        {% for player in game.players %}
+            <div class="player-row">
+                <div>
+                    <span class="player-pos">{{ positions[player] }}</span>
+                    <strong>{{ player }}</strong>
+                </div>
             </div>
-        </div>
-    {% endfor %}
-</div>
-
-<!-- BOARD -->
-<div class="column">
-    <h3>Board</h3>
-    <div class="cards" style="text-align:center;">
-        {% for c in game.board %}
-            <img src="{{ url_for('static', filename='cards/' ~ c ~ '.png') }}">
         {% endfor %}
-        {% if not game.board %}
-            <div class="muted">—</div>
-        {% endif %}
     </div>
-</div>
+
+    <!-- BOARD -->
+    <div class="column">
+        <h3>Board</h3>
+        <div class="cards" style="text-align:center;">
+            {% for c in game.board %}
+                <img src="{{ url_for('static', filename='cards/' ~ c ~ '.png') }}">
+            {% endfor %}
+            {% if not game.board %}
+                <div class="muted">—</div>
+            {% endif %}
+        </div>
+    </div>
 
 </div>
 

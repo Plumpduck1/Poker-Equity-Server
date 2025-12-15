@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Table Locked</title>
+
+<style>
+:root {
+    --bg: #0b0b0b;
+    --panel: #141414;
+    --border: #333;
+    --text: #eaeaea;
+    --muted: #888;
+    --accent: #3fa9f5;
+    --danger: #e74c3c;
+}
+
+body {
+    margin: 0;
+    height: 100vh;
+    background: radial-gradient(circle at top, #141414, #050505);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: system-ui, monospace;
+    color: var(--text);
+}
+
+.lock-container {
+    width: 360px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 26px;
+    box-shadow: 0 0 40px rgba(0,0,0,0.85);
+    text-align: center;
+}
+
+h1 {
+    margin: 0 0 6px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--accent);
+}
+
+.subtitle {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 18px;
+}
+
+.lock-icon {
+    font-size: 28px;
+    margin-bottom: 12px;
+}
+
+input[type="text"] {
+    width: 100%;
+    background: #0f0f0f;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 12px;
+    font-family: monospace;
+    font-size: 18px;
+    letter-spacing: 8px;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+input[type="text"]:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.error {
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--danger);
+}
+
+button {
+    width: 100%;
+    margin-top: 18px;
+    padding: 10px;
+    font-family: monospace;
+    font-weight: 600;
+    background: linear-gradient(90deg, #2b78c2, #3fa9f5);
+    border: none;
+    color: #000;
+    cursor: pointer;
+}
+
+button:hover {
+    filter: brightness(1.05);
+}
+</style>
+</head>
+
+<body>
+
+<div class="lock-container">
+    <div class="lock-icon">🔒</div>
+
+    <h1>Table Locked</h1>
+    <div class="subtitle">Enter host code to continue</div>
+
+    <form method="POST">
+        <input
+            type="text"
+            name="host_code"
+            maxlength="4"
+            autocomplete="off"
+            autocapitalize="characters"
+            oninput="this.value = this.value.toUpperCase()"
+            placeholder="CODE"
+            required
+        >
+
+        {% if error %}
+            <div class="error">Invalid host code</div>
+        {% endif %}
+
+        <button type="submit">Unlock</button>
+    </form>
+</div>
+
+</body>
+</html>
