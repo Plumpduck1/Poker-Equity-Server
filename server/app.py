@@ -4,7 +4,7 @@ import random
 import sqlite3
 import requests
 
-from server.equity import calculate_equity_multi
+from equity import calculate_equity_multi
 from treys import Evaluator, Card
 
 app = Flask(__name__)
