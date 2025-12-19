@@ -13,7 +13,10 @@ DB_PATH = "cards.db"
 # MUST match app.py exactly
 RANKS = "23456789TJQKA"
 SUITS = "cdhs"
-CARD_ORDER = [r + s for r in RANKS for s in SUITS]
+
+# ✅ Suit-major order:
+# 2–A clubs → 2–A diamonds → hearts → spades
+CARD_ORDER = [r + s for s in SUITS for r in RANKS]
 
 # =============================
 # UTIL
@@ -71,12 +74,12 @@ def get_reader():
     print(f"✅ Using reader: {r[0]}")
     return r[0]
 
-def wait_for_uid(reader):
+def wait_for_uid(reader, last_uid=None):
     connection = reader.createConnection()
     print("   Tap card  |  [S] skip  |  [Q] quit")
 
     while True:
-        # Keyboard input
+        # Keyboard controls
         if key_pressed():
             key = sys.stdin.read(1).lower()
             if key == "s":
@@ -92,9 +95,37 @@ def wait_for_uid(reader):
                 [0xFF, 0xCA, 0x00, 0x00, 0x00]
             )
             uid = "".join(f"{b:02X}" for b in data)
+
+            # 🔒 Ignore same card still on reader
+            if uid == last_uid:
+                time.sleep(0.1)
+                continue
+
             return uid
+
         except:
             time.sleep(0.1)
+
+def wait_for_removal(reader, uid):
+    connection = reader.createConnection()
+    print("   Remove card...")
+
+    while True:
+        try:
+            connection.connect()
+            data, sw1, sw2 = connection.transmit(
+                [0xFF, 0xCA, 0x00, 0x00, 0x00]
+            )
+            current_uid = "".join(f"{b:02X}" for b in data)
+
+            if current_uid != uid:
+                return
+
+        except:
+            # No card present = success
+            return
+
+        time.sleep(0.1)
 
 # =============================
 # MAIN TRAINING LOOP
@@ -108,13 +139,15 @@ def main():
     reader = get_reader()
 
     already_done = count_mapped()
+    last_uid = None
+
     if already_done > 0:
         print(f"🔁 Resuming training at card {already_done + 1}/52")
 
     for idx, card in enumerate(CARD_ORDER[already_done:], start=already_done + 1):
         print(f"\n[{idx:02d}/52] Present card: {card}")
 
-        uid = wait_for_uid(reader)
+        uid = wait_for_uid(reader, last_uid)
 
         if uid is None:
             print("⏭️  Skipped")
@@ -123,12 +156,15 @@ def main():
         existing = uid_exists(uid)
         if existing:
             print(f"⚠️  UID already mapped to {existing[0]} — ignoring")
+            wait_for_removal(reader, uid)
+            last_uid = uid
             continue
 
         save_mapping(uid, card)
         print(f"✅ Mapped UID {uid} → {card}")
 
-        time.sleep(0.5)  # debounce
+        wait_for_removal(reader, uid)
+        last_uid = uid
 
     # =============================
     # FINAL CHECK
