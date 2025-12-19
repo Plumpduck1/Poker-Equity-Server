@@ -39,6 +39,12 @@ def init_db():
     db.commit()
     db.close()
 
+def reset_db():
+    db = get_db()
+    db.execute("DELETE FROM card_map")
+    db.commit()
+    db.close()
+
 def uid_exists(uid):
     db = get_db()
     cur = db.execute("SELECT card FROM card_map WHERE uid=?", (uid,))
@@ -76,7 +82,7 @@ def get_reader():
 
 def wait_for_uid(reader, last_uid=None):
     connection = reader.createConnection()
-    print("   Tap card  |  [S] skip  |  [Q] quit")
+    print("   Tap card  |  [S] skip  |  [R] reset  |  [Q] quit")
 
     while True:
         # Keyboard controls
@@ -87,6 +93,8 @@ def wait_for_uid(reader, last_uid=None):
             if key == "q":
                 print("\n🛑 Training aborted safely")
                 sys.exit(0)
+            if key == "r":
+                return "__RESET__"
 
         # RFID read
         try:
@@ -138,8 +146,8 @@ def main():
     init_db()
     reader = get_reader()
 
-    already_done = count_mapped()
     last_uid = None
+    already_done = count_mapped()
 
     if already_done > 0:
         print(f"🔁 Resuming training at card {already_done + 1}/52")
@@ -148,6 +156,13 @@ def main():
         print(f"\n[{idx:02d}/52] Present card: {card}")
 
         uid = wait_for_uid(reader, last_uid)
+
+        # 🔄 RESET
+        if uid == "__RESET__":
+            print("\n🔄 Resetting training — starting from 1/52")
+            reset_db()
+            last_uid = None
+            return main()
 
         if uid is None:
             print("⏭️  Skipped")
