@@ -5,17 +5,18 @@ import requests
 from smartcard.System import readers
 from smartcard.Exceptions import NoCardException
 
+from card_dispenser import wait_for_button_and_dispense
+
 # ======================
 # CONFIG
 # ======================
 
 DB_PATH = "cards.db"
-
-SERVER_URL = "https://xavierpoker.up.railway.app/rfid"  # later
+SERVER = "https://xavierpoker.up.railway.app"
 TABLE_ID = "xavierpokertable"
 
-SEND_TO_SERVER = False    # flip True when ready
-DEBOUNCE_SECONDS = 1.0
+POLL_INTERVAL = 0.5
+DEBOUNCE_SECONDS = 0.6
 
 GET_UID = [0xFF, 0xCA, 0x00, 0x00, 0x00]
 
@@ -31,68 +32,108 @@ def lookup_card(uid):
     return row[0] if row else None
 
 # ======================
-# SETUP
+# RFID SETUP
 # ======================
 
-print("🟢 Starting RFID listener")
+print("🟢 RFID listener starting")
 
 r = readers()
 if not r:
-    raise RuntimeError("❌ No NFC reader found")
+    raise RuntimeError("❌ No RFID reader")
 
 reader = r[0]
 print(f"✅ Using reader: {reader}")
 
+# ======================
+# STATE
+# ======================
+
+state = "IDLE"
+ufids = []
 last_uid = None
 last_time = 0
+
+# ======================
+# SERVER COMM
+# ======================
+
+def get_command():
+    try:
+        r = requests.get(f"{SERVER}/pi/command", timeout=2)
+        return r.json().get("action")
+    except:
+        return None
+
+def send_deck():
+    print("📤 Sending deck to server")
+    requests.post(
+        f"{SERVER}/pi/deck",
+        json={
+            "table_id": TABLE_ID,
+            "ufids": ufids
+        },
+        timeout=5
+    )
+
+# ======================
+# RFID LOOP
+# ======================
+
+def scan_loop():
+    global last_uid, last_time
+
+    while True:
+        try:
+            connection = reader.createConnection()
+            connection.connect()
+
+            data, _, _ = connection.transmit(GET_UID)
+            uid = "".join(f"{b:02X}" for b in data)
+            now = time.time()
+
+            if uid == last_uid and (now - last_time) < DEBOUNCE_SECONDS:
+                return
+
+            last_uid = uid
+            last_time = now
+
+            if uid in ufids:
+                return
+
+            card = lookup_card(uid)
+            if not card:
+                print(f"⚠️ Unknown UID {uid}")
+                return
+
+            ufids.append(uid)
+            print(f"[SCAN] {len(ufids)} → {uid} ({card})")
+
+        except NoCardException:
+            pass
 
 # ======================
 # MAIN LOOP
 # ======================
 
 while True:
-    try:
-        connection = reader.createConnection()
-        connection.connect()
+    cmd = get_command()
 
-        data, sw1, sw2 = connection.transmit(GET_UID)
-        uid = "".join(f"{b:02X}" for b in data)
-        now = time.time()
+    if cmd == "prepare_scan" and state == "IDLE":
+        print("🟡 ARMED")
+        ufids.clear()
+        state = "ARMED"
 
-        # debounce
-        if uid == last_uid and (now - last_time) < DEBOUNCE_SECONDS:
-            time.sleep(0.1)
-            continue
+    elif state == "ARMED":
+        wait_for_button_and_dispense()
+        state = "SCANNING"
 
-        last_uid = uid
-        last_time = now
+    elif state == "SCANNING":
+        scan_loop()
+        if len(ufids) >= 52:
+            state = "DONE"
 
-        card = lookup_card(uid)
-        if not card:
-            print(f"⚠️  Unknown UID {uid} — not trained")
-            time.sleep(0.5)
-            continue
+    elif state == "DONE":
+        send_deck()
+        state = "IDLE"
 
-        print(f"[SCAN] {uid} → {card}")
-
-        if SEND_TO_SERVER:
-            try:
-                requests.post(
-                    SERVER_URL,
-                    timeout=2,
-                    json={
-                        "table_id": TABLE_ID,
-                        "card": card,
-                    }
-                )
-            except Exception as e:
-                print("❌ Server send failed:", e)
-
-        time.sleep(0.5)  # wait for removal
-
-    except NoCardException:
-        time.sleep(0.1)
-
-    except Exception as e:
-        print("❌ Reader error:", e)
-        time.sleep(1)
+    time.sleep(POLL_INTERVAL)

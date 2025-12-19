@@ -1,20 +1,20 @@
-from flask import Flask, render_template, request, redirect, abort
+from flask import Flask, render_template, request, redirect, abort, jsonify
 import os
 import random
 import sqlite3
-import string
+import requests
 
-from equity import calculate_equity_multi
+from server.equity import calculate_equity_multi
 from treys import Evaluator, Card
 
 app = Flask(__name__)
 
-# =============================
-# Info modes (ONLY 2)
-# =============================
+# ======================================================
+# Constants / Modes
+# ======================================================
 
-INFO_FULL = "FULL"               # live equities + hole cards (home games)
-INFO_DELAYED = "DELAYED_EQUITY"  # 1-street delayed equities + no hole cards
+INFO_FULL = "FULL"
+INFO_DELAYED = "DELAYED_EQUITY"
 
 PHASE_BACK = {
     "PREFLOP": None,
@@ -26,49 +26,25 @@ PHASE_BACK = {
 
 STREETS = ("PREFLOP", "FLOP", "TURN", "RIVER", "SHOWDOWN")
 
-# =============================
+# ======================================================
+# Pi Command State (single-table)
+# ======================================================
+
+PI_COMMAND = {"action": "idle"}
+
+# ======================================================
 # Host code (simple security)
-# =============================
+# ======================================================
 
 def generate_host_code():
     alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ"
     return "".join(random.choice(alphabet) for _ in range(4))
 
-# =============================
-# Database (RFID future-proof)
-# =============================
-
-DB_PATH = "poker.db"
-
-def get_db():
-    return sqlite3.connect(DB_PATH, check_same_thread=False)
-
-def init_db():
-    db = get_db()
-    db.execute("""
-        CREATE TABLE IF NOT EXISTS rfid_cards (
-            uid TEXT PRIMARY KEY,
-            card TEXT NOT NULL
-        )
-    """)
-    db.commit()
-
-init_db()
-
-# =============================
+# ======================================================
 # Helpers
-# =============================
-
-RANKS = "23456789TJQKA"
-SUITS = "cdhs"
-
-def fresh_deck():
-    return [f"{r}{s}" for r in RANKS for s in SUITS]
+# ======================================================
 
 def get_positions(players, button_index):
-    """
-    Real poker positions, 2–10 players, button-relative
-    """
     n = len(players)
     labels = {
         2:  ["BTN", "BB"],
@@ -99,36 +75,56 @@ def iterations_for(players_count, phase):
         "RIVER": 0.40,
     }.get(phase, 0.6)
 
-    iters = int(iters * mult)
-    return max(200, min(2000, iters))
+    return max(200, min(2000, int(iters * mult)))
 
-# =============================
-# Global state (single table)
-# =============================
+# ======================================================
+# Global game state (single table)
+# ======================================================
 
 game_state = None
 
 def bump_version():
-    if game_state is not None:
+    if game_state:
         game_state["version"] += 1
 
-# =============================
-# Dealing (simulated)
-# =============================
+# ======================================================
+# Game init
+# ======================================================
 
-def scan_full_deck_sim():
-    game_state["deck"] = fresh_deck()
-    random.shuffle(game_state["deck"])
-    game_state["deck_pointer"] = 0
-    game_state["burned"] = []
+def start_new_game(players, button_index, info_mode, manual_button=False, host_code=None):
+    n = len(players)
+    return {
+        "version": 0,
+        "host_code": host_code or generate_host_code(),
 
-def scan_next_card():
+        "info_mode": info_mode,
+        "players": players,
+        "button_index": button_index,
+        "phase": "WAITING",
+        "manual_button": manual_button,
+
+        # Deck is provided by Pi
+        "deck": [],
+        "deck_pointer": 0,
+
+        "hands": {},
+        "board": [],
+
+        "equity_by_phase": {},
+        "last_completed_phase": None,
+        "display_equities": [0.0] * n,
+        "display_hand_ranks": {},
+        "tie_probability": 0.0,
+    }
+
+# ======================================================
+# Deck consumption (authoritative, deterministic)
+# ======================================================
+
+def next_card():
     card = game_state["deck"][game_state["deck_pointer"]]
     game_state["deck_pointer"] += 1
     return card
-
-def burn_card():
-    game_state["burned"].append(scan_next_card())
 
 def deal_hole_cards():
     n = len(game_state["players"])
@@ -138,29 +134,26 @@ def deal_hole_cards():
     for _ in range(2):
         for i in range(n):
             p = game_state["players"][(start + i) % n]
-            hands[p].append(scan_next_card())
+            hands[p].append(next_card())
 
     game_state["hands"] = hands
     game_state["phase"] = "PREFLOP"
 
 def deal_flop():
-    burn_card()
-    game_state["board"] = [scan_next_card() for _ in range(3)]
+    game_state["board"] = [next_card() for _ in range(3)]
     game_state["phase"] = "FLOP"
 
 def deal_turn():
-    burn_card()
-    game_state["board"].append(scan_next_card())
+    game_state["board"].append(next_card())
     game_state["phase"] = "TURN"
 
 def deal_river():
-    burn_card()
-    game_state["board"].append(scan_next_card())
+    game_state["board"].append(next_card())
     game_state["phase"] = "RIVER"
 
-# =============================
+# ======================================================
 # Showdown (deterministic)
-# =============================
+# ======================================================
 
 def resolve_showdown(game):
     evaluator = Evaluator()
@@ -180,87 +173,56 @@ def resolve_showdown(game):
     ]
     game["tie_probability"] = 100.0 if len(winners) > 1 else 0.0
 
-# =============================
-# Game init
-# =============================
+# ======================================================
+# Pi API
+# ======================================================
 
-def start_new_game(players, button_index, info_mode, manual_button=False, host_code=None):
-    """
-    IMPORTANT:
-    - host_code must persist across the lifetime of the game session
-      otherwise you lock yourself out when you start a new hand.
-    """
-    n = len(players)
-    return {
-        "version": 0,
-        "host_code": host_code or generate_host_code(),
+@app.route("/pi/command", methods=["GET", "POST"])
+def pi_command():
+    global PI_COMMAND
+    if request.method == "POST":
+        PI_COMMAND = request.json
+        return {"ok": True}
+    return PI_COMMAND
 
-        "info_mode": info_mode,
-        "players": players,
-        "button_index": button_index,
-        "phase": "WAITING",
-        "manual_button": manual_button,
+@app.route("/pi/deck", methods=["POST"])
+def receive_deck():
+    global game_state
 
-        "deck": [],
-        "deck_pointer": 0,
-        "burned": [],
+    data = request.json
+    deck = data.get("deck") or data.get("ufids")
 
-        "hands": {},
-        "board": [],
+    if not deck or len(deck) < 7:
+        abort(400, "Invalid deck")
 
-        "equity_by_phase": {},
-        "last_completed_phase": None,
-        "display_equities": [0.0] * n,
-        "display_hand_ranks": {},
-        "tie_probability": 0.0,
-    }
+    game_state["deck"] = deck
+    game_state["deck_pointer"] = 0
 
-# =============================
-# Equity visibility
-# =============================
+    deal_hole_cards()
+    bump_version()
 
-def resolve_display_info(game):
-    if game["info_mode"] == INFO_FULL:
-        return game["equity_by_phase"].get(game["phase"])
+    return {"ok": True}
 
-    if game["info_mode"] == INFO_DELAYED:
-        prev = PHASE_BACK.get(game["phase"])
-        return game["equity_by_phase"].get(prev) if prev else None
-
-    return None
-
-# =============================
-# Routes
-# =============================
+# ======================================================
+# Host routes
+# ======================================================
 
 @app.route("/host/config", methods=["GET", "POST"])
 def host_config():
     global game_state
 
-    # =============================
-    # GAME EXISTS → LOCKED
-    # =============================
     if game_state is not None:
-
-        # GET → show lock screen
         if request.method == "GET":
             return render_template("locked.html", target="config", error=False)
 
-        # POST → validate code
         code = request.form.get("host_code", "").upper()
-
         if code != game_state.get("host_code"):
             return render_template("locked.html", target="config", error=True)
 
-        # ✅ Correct code → allow reconfiguration
         return render_template("config.html", game=game_state)
 
-    # =============================
-    # NO GAME → NORMAL CONFIG
-    # =============================
     if request.method == "POST":
         players = [p.strip() for p in request.form.getlist("players[]")]
-
         if not (2 <= len(players) <= 10):
             return "2–10 players required", 400
 
@@ -268,16 +230,18 @@ def host_config():
         info_mode = request.form.get("info_mode", INFO_DELAYED)
 
         game_state = start_new_game(players, button_index, info_mode)
-        scan_full_deck_sim()
-        deal_hole_cards()
         bump_version()
+
+        # Tell Pi to prepare scanning
+        requests.post(
+            f"{request.host_url}pi/command",
+            json={"action": "prepare_scan"},
+            timeout=2
+        )
 
         return redirect(f"/host?host_code={game_state['host_code']}")
 
     return render_template("config.html")
-
-
-
 
 @app.route("/host", methods=["GET", "POST"])
 def host_view():
@@ -286,53 +250,53 @@ def host_view():
     if game_state is None:
         return redirect("/host/config")
 
-    # 🔐 validate code
     code = request.form.get("host_code") or request.args.get("host_code", "")
-    code = code.upper()
-
-    if code != game_state.get("host_code"):
+    if code.upper() != game_state.get("host_code"):
         return render_template("locked.html", target="host", error=True)
 
     n = len(game_state["players"])
 
-    # ---------- POST actions ----------
     if request.method == "POST":
-
-        if "force_button" in request.form:
-            new_btn = int(request.form["force_button"]) % n
-            game_state.update(
-                start_new_game(game_state["players"], new_btn, game_state["info_mode"], True)
-            )
-            scan_full_deck_sim()
-            deal_hole_cards()
-            bump_version()
-            return redirect(f"/host?host_code={game_state['host_code']}")
 
         if request.form.get("action") == "advance":
             phase = game_state["phase"]
 
-            if phase in ("WAITING", "SHOWDOWN"):
-                next_btn = (
-                    game_state["button_index"]
-                    if game_state["manual_button"]
-                    else (game_state["button_index"] - 1) % n
-                )
-                game_state.update(
-                    start_new_game(game_state["players"], next_btn, game_state["info_mode"])
-                )
-                scan_full_deck_sim()
-                deal_hole_cards()
-
-            elif phase == "PREFLOP": deal_flop()
+            if phase == "PREFLOP": deal_flop()
             elif phase == "FLOP": deal_turn()
             elif phase == "TURN": deal_river()
-            elif phase == "RIVER": game_state["phase"] = "SHOWDOWN"
+            elif phase == "RIVER":
+                game_state["phase"] = "SHOWDOWN"
+                resolve_showdown(game_state)
+
+            bump_version()
+            return redirect(f"/host?host_code={game_state['host_code']}")
+
+        if request.form.get("action") == "new_round":
+            game_state.update(
+                start_new_game(
+                    game_state["players"],
+                    game_state["button_index"],
+                    game_state["info_mode"],
+                    game_state["manual_button"],
+                    game_state["host_code"],
+                )
+            )
+
+            requests.post(
+                f"{request.host_url}pi/command",
+                json={"action": "prepare_scan"},
+                timeout=2
+            )
 
             bump_version()
             return redirect(f"/host?host_code={game_state['host_code']}")
 
     positions = get_positions(game_state["players"], game_state["button_index"])
     return render_template("host.html", game=game_state, positions=positions)
+
+# ======================================================
+# Audience routes
+# ======================================================
 
 @app.route("/")
 def audience_view():
@@ -344,18 +308,16 @@ def game_state_json():
         return {}, 200
 
     public = dict(game_state)
-
-    # Protected mode: do NOT leak hole cards or hand ranks
     if game_state["info_mode"] == INFO_DELAYED:
         public["hands"] = {}
         public["display_hand_ranks"] = {}
 
     return public
 
-# =============================
+# ======================================================
 # Run
-# =============================
+# ======================================================
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)

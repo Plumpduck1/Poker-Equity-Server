@@ -6,65 +6,55 @@ from gpiozero import Button, OutputDevice
 # CONFIG
 # =========================
 
-BUTTON_PIN = 17          # GPIO for button
-RELAY_PIN = 27           # GPIO for relay
-RELAY_ACTIVE_HIGH = True # set False if relay triggers on LOW
+BUTTON_PIN = 17
+RELAY_PIN = 27
+RELAY_ACTIVE_HIGH = True
 
 PULSE_ON  = 0.045
 PULSE_OFF = 0.065
 RUN_DURATION = 5.7
 
-
 # =========================
 # SETUP
 # =========================
 
-print("🃏 Card Dispenser Controller Starting")
+print("🃏 Card Dispenser Ready")
 
 button = Button(BUTTON_PIN, pull_up=True, bounce_time=0.1)
-
 relay = OutputDevice(
     RELAY_PIN,
     active_high=RELAY_ACTIVE_HIGH,
     initial_value=False
 )
 
-print("✅ Ready")
-print("Press button to dispense cards")
-
-# =========================
-# DISPENSE LOGIC
-# =========================
-
 def dispense_cards():
-    print("▶ Dispensing started")
+    print("▶ Dispensing")
     start = time.time()
 
-    while (time.time() - start) < RUN_DURATION:
+    while time.time() - start < RUN_DURATION:
         relay.on()
         time.sleep(PULSE_ON)
-
         relay.off()
         time.sleep(PULSE_OFF)
 
     relay.off()
-    print("■ Dispensing finished")
+    print("■ Dispense finished")
 
 # =========================
-# MAIN LOOP
+# EXPORTED API
 # =========================
 
-try:
-    while True:
-        button.wait_for_press()
-        dispense_cards()
+def wait_for_button_and_dispense():
+    print("⏸ Waiting for dealer button")
+    button.wait_for_press()
+    dispense_cards()
+    button.wait_for_release()
+    time.sleep(0.3)
 
-        # wait until button released to avoid retrigger
-        button.wait_for_release()
-        time.sleep(0.3)
-
-except KeyboardInterrupt:
-    print("\n🛑 Shutting down safely")
-
-finally:
-    relay.off()
+if __name__ == "__main__":
+    try:
+        while True:
+            wait_for_button_and_dispense()
+    except KeyboardInterrupt:
+        relay.off()
+        print("🛑 Shutdown")
