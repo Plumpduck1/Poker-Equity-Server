@@ -10,8 +10,9 @@ from card_dispenser import wait_for_button_and_dispense
 # ======================
 # CONFIG
 # ======================
+import os
+DB_PATH = os.path.join(os.path.dirname(__file__), "poker.db")
 
-DB_PATH = "cards.db"
 SERVER = "https://xavierpoker.up.railway.app"
 TABLE_ID = "xavierpokertable"
 
