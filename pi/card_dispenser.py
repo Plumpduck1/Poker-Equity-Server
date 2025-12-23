@@ -1,34 +1,28 @@
 #!/usr/bin/env python3
+import RPi.GPIO as GPIO
 import time
-from gpiozero import Button, DigitalOutputDevice
 
-BUTTON_PIN = 22   # physical pin 15
-RELAY_PIN  = 17   # physical pin 11
+BUTTON_PIN = 22
+RELAY_PIN  = 17
+RUN_DURATION = 3
 
-RUN_DURATION = 3.0   # seconds
+GPIO.setmode(GPIO.BCM)
+
+GPIO.setup(RELAY_PIN, GPIO.OUT)
+GPIO.output(RELAY_PIN, GPIO.HIGH)   # relay OFF by default
+
+GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
 print("🃏 Ready")
 
-button = Button(BUTTON_PIN, pull_up=True, bounce_time=0.1)
-
-# Active-LOW relay module (low-level trigger)
-relay = DigitalOutputDevice(RELAY_PIN, active_high=False)
-
-# Force OFF immediately once Python starts
-relay.off()
-time.sleep(0.2)
-relay.off()
-
-def run_motor(seconds: float):
-    print(f"▶ Motor ON for {seconds}s")
-    relay.on()               # active-low: ON = pulls GPIO low
-    time.sleep(seconds)
-    relay.off()
-    print("■ Motor OFF")
-
-while True:
-    print("⏸ Waiting for button")
-    button.wait_for_press()
-    run_motor(RUN_DURATION)
-    button.wait_for_release()
-    time.sleep(0.25)  # debounce/lockout
+try:
+    while True:
+        if GPIO.input(BUTTON_PIN) == GPIO.LOW:
+            print("▶ Motor ON")
+            GPIO.output(RELAY_PIN, GPIO.LOW)   # relay ON
+            time.sleep(RUN_DURATION)
+            GPIO.output(RELAY_PIN, GPIO.HIGH)  # relay OFF
+            print("■ Motor OFF")
+            time.sleep(0.3)
+finally:
+    GPIO.cleanup()
