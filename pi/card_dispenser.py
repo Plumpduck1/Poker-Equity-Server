@@ -2,73 +2,33 @@
 import time
 from gpiozero import Button, DigitalOutputDevice
 
-# =========================
-# CONFIG
-# =========================
+BUTTON_PIN = 22   # physical pin 15
+RELAY_PIN  = 17   # physical pin 11
 
-BUTTON_PIN = 22        # physical pin 15
-RELAY_PIN  = 17        # physical pin 11 (relay IN)
+RUN_DURATION = 3.0   # seconds
 
-PULSE_ON  = 0.045
-PULSE_OFF = 0.065
-RUN_DURATION = 5.7
+print("🃏 Ready")
 
-# =========================
-# SETUP
-# =========================
+button = Button(BUTTON_PIN, pull_up=True, bounce_time=0.1)
 
-print("🃏 Card Dispenser Ready")
+# Active-LOW relay module (low-level trigger)
+relay = DigitalOutputDevice(RELAY_PIN, active_high=False)
 
-button = Button(
-    BUTTON_PIN,
-    pull_up=True,
-    bounce_time=0.1
-)
-
-# Active-LOW relay:
-#   GPIO LOW  = relay ON
-#   GPIO HIGH = relay OFF
-relay = DigitalOutputDevice(
-    RELAY_PIN,
-    active_high=False,
-    initial_value=True   # drive GPIO HIGH immediately → relay OFF
-)
-
-# extra safety
+# Force OFF immediately once Python starts
+relay.off()
+time.sleep(0.2)
 relay.off()
 
-# =========================
-# LOGIC
-# =========================
-
-def dispense_cards():
-    print("▶ Dispensing")
-    start = time.time()
-
-    while time.time() - start < RUN_DURATION:
-        relay.on()                 # GPIO LOW → relay ON
-        time.sleep(PULSE_ON)
-        relay.off()                # GPIO HIGH → relay OFF
-        time.sleep(PULSE_OFF)
-
+def run_motor(seconds: float):
+    print(f"▶ Motor ON for {seconds}s")
+    relay.on()               # active-low: ON = pulls GPIO low
+    time.sleep(seconds)
     relay.off()
-    print("■ Dispense finished")
+    print("■ Motor OFF")
 
-def wait_for_button_and_dispense():
-    print("⏸ Waiting for dealer button")
+while True:
+    print("⏸ Waiting for button")
     button.wait_for_press()
-    dispense_cards()
+    run_motor(RUN_DURATION)
     button.wait_for_release()
-    time.sleep(0.3)   # debounce / lockout
-
-# =========================
-# MAIN
-# =========================
-
-if __name__ == "__main__":
-    try:
-        while True:
-            wait_for_button_and_dispense()
-    except KeyboardInterrupt:
-        relay.off()
-        print("🛑 Shutdown")
+    time.sleep(0.25)  # debounce/lockout
