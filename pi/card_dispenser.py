@@ -8,7 +8,7 @@ from gpiozero import Button, OutputDevice
 
 BUTTON_PIN = 22        # physical pin 15
 RELAY_PIN  = 17        # physical pin 11
-RELAY_ACTIVE_HIGH = False   # active-LOW relay
+RELAY_ACTIVE_HIGH = True   # active-LOW relay
 
 PULSE_ON  = 0.045
 PULSE_OFF = 0.065
@@ -28,9 +28,10 @@ button = Button(
 
 relay = OutputDevice(
     RELAY_PIN,
-    active_high=RELAY_ACTIVE_HIGH,
-    initial_value=False   # relay OFF at boot
+    active_high=False,   # active-LOW relay
+    initial_value=True   # force relay OFF at startup
 )
+
 
 def dispense_cards():
     print("▶ Dispensing")
