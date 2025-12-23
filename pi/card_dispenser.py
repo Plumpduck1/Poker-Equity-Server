@@ -6,9 +6,9 @@ from gpiozero import Button, OutputDevice
 # CONFIG
 # =========================
 
-BUTTON_PIN = 17
-RELAY_PIN = 27
-RELAY_ACTIVE_HIGH = True
+BUTTON_PIN = 22        # physical pin 15
+RELAY_PIN  = 17        # physical pin 11
+RELAY_ACTIVE_HIGH = False   # active-LOW relay
 
 PULSE_ON  = 0.045
 PULSE_OFF = 0.065
@@ -20,11 +20,16 @@ RUN_DURATION = 5.7
 
 print("🃏 Card Dispenser Ready")
 
-button = Button(BUTTON_PIN, pull_up=True, bounce_time=0.1)
+button = Button(
+    BUTTON_PIN,
+    pull_up=True,
+    bounce_time=0.1
+)
+
 relay = OutputDevice(
     RELAY_PIN,
     active_high=RELAY_ACTIVE_HIGH,
-    initial_value=False
+    initial_value=False   # relay OFF at boot
 )
 
 def dispense_cards():
@@ -41,7 +46,7 @@ def dispense_cards():
     print("■ Dispense finished")
 
 # =========================
-# EXPORTED API
+# MAIN LOOP
 # =========================
 
 def wait_for_button_and_dispense():
