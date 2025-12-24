@@ -23,28 +23,39 @@ connection = reader.createConnection()
 # ================= CONFIG =================
 MAX_CARDS = 52
 
-# === HUMAN RHYTHM ===
-STEP_TIME = 0.60        # total pinch + rest
-PULSE_ON  = STEP_TIME / 3
-DWELL_OFF = STEP_TIME * 2 / 3
+# ---- NORMAL (FAST) MODE ----
+NORMAL_STEP_TIME = 0.45
+NORMAL_PULSE_ON  = NORMAL_STEP_TIME / 3
+NORMAL_DWELL     = NORMAL_STEP_TIME * 2 / 3
+NORMAL_SCAN_WIN  = 0.40
 
-# RFID behaviour
-SCAN_WINDOW   = 0.80
-STABLE_READS  = 2
-POLL_DELAY    = 0.01
+# ---- JAM FIX MODE ----
+JAM_BURST_PULSES = 2
+JAM_INTER_PULSE  = 0.05
+JAM_DWELL        = 0.90
+JAM_SCAN_WIN     = 0.80
+MAX_JAM_ATTEMPTS = 3
 
-# Clear detection
-CLEAR_TIME    = 0.35
+# ---- RFID ----
+STABLE_READS = 2
+POLL_DELAY   = 0.01
+
+# ---- CLEAR DETECTION ----
+CLEAR_TIME = 0.35
 # ========================================
 
-print("🃏 Pulse+dwell feeder with emergency stop ready")
+print("🃏 Card feeder (fast + jam-safe) ready")
 
 # ------------------------------------------------
 
-def stop_everything():
+def emergency_stop():
     relay.off()
-    print("⛔ STOPPED")
+    print("⛔ EMERGENCY STOP")
     raise KeyboardInterrupt
+
+def check_button():
+    if button.is_pressed:
+        emergency_stop()
 
 def connect_card():
     try:
@@ -64,31 +75,26 @@ def read_uid():
         pass
     return None
 
-def pulse_once():
+def pulse(on_time):
     relay.on()
     start = time.time()
-
-    while time.time() - start < PULSE_ON:
-        if button.is_pressed:
-            stop_everything()
+    while time.time() - start < on_time:
+        check_button()
         time.sleep(0.005)
-
     relay.off()
 
-def dwell_and_scan(ignore):
-    # motor OFF, sacred dwell
+def dwell_and_scan(ignore, dwell_time, scan_window):
+    # motor must be OFF here
     start = time.time()
-    while time.time() - start < DWELL_OFF:
-        if button.is_pressed:
-            stop_everything()
+    while time.time() - start < dwell_time:
+        check_button()
         time.sleep(0.01)
 
     seen = {}
     scan_start = time.time()
 
-    while time.time() - scan_start < SCAN_WINDOW:
-        if button.is_pressed:
-            stop_everything()
+    while time.time() - scan_start < scan_window:
+        check_button()
 
         if connect_card():
             uid = read_uid()
@@ -105,8 +111,7 @@ def wait_until_clear():
     clear_start = None
 
     while True:
-        if button.is_pressed:
-            stop_everything()
+        check_button()
 
         uid = None
         if connect_card():
@@ -129,16 +134,42 @@ def feed_and_scan_deck():
 
     for card_num in range(1, MAX_CARDS + 1):
         print(f"\n▶ Card {card_num}")
-
         ignore = set(seen)
         if prev_uid:
             ignore.add(prev_uid)
 
         uid = None
+        jam_attempts = 0
 
         while not uid:
-            pulse_once()
-            uid = dwell_and_scan(ignore)
+            # ===== FAST NORMAL ATTEMPT =====
+            pulse(NORMAL_PULSE_ON)
+            uid = dwell_and_scan(
+                ignore,
+                dwell_time=NORMAL_DWELL,
+                scan_window=NORMAL_SCAN_WIN
+            )
+            if uid:
+                break
+
+            # ===== JAM FIX MODE =====
+            jam_attempts += 1
+            print("⚠️ Jam recovery")
+
+            for _ in range(JAM_BURST_PULSES):
+                pulse(NORMAL_PULSE_ON)
+                time.sleep(JAM_INTER_PULSE)
+
+            uid = dwell_and_scan(
+                ignore,
+                dwell_time=JAM_DWELL,
+                scan_window=JAM_SCAN_WIN
+            )
+
+            if jam_attempts >= MAX_JAM_ATTEMPTS and not uid:
+                print("⛔ Persistent jam — backing off")
+                time.sleep(1.0)
+                jam_attempts = 0
 
         print(f"✅ UID = {uid}")
         seen.add(uid)
@@ -153,9 +184,11 @@ def feed_and_scan_deck():
 while True:
     print("\n⏸ Waiting for button")
     button.wait_for_press()
+
     try:
         print("▶ START")
         feed_and_scan_deck()
     except KeyboardInterrupt:
         relay.off()
+
     button.wait_for_release()
