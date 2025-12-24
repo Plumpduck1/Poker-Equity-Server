@@ -4,21 +4,19 @@ import time
 
 BUTTON_PIN = 22
 RELAY_PIN  = 17
+MAX_CARDS  = 52
 
-MAX_CARDS = 52
-
-# ===== SHORT PULSE / LONG SETTLE PROFILE =====
-PULSE_ON_START = 0.06   # short tap at start (heavy stack)
-PULSE_ON_END   = 0.02   # very short tap at end (light stack)
-
-PULSE_OFF = 0.32        # long settle time (critical)
-# ============================================
+# ===== TIMING (tuned for reliability) =====
+PULSE_ON_START = 0.09    # strong early shove
+PULSE_ON_END   = 0.035   # gentle late shove
+PULSE_OFF      = 0.30    # long settle (prevents doubles)
+# =========================================
 
 button = Button(BUTTON_PIN, pull_up=True)
-relay  = DigitalOutputDevice(RELAY_PIN)   # ACTIVE-HIGH relay
+relay  = DigitalOutputDevice(RELAY_PIN)   # ACTIVE-HIGH
 
 relay.off()
-print("🃏 Short-pulse / long-settle feeder ready")
+print("🃏 Tuned single-pulse feeder ready")
 
 def lerp(a, b, t):
     return a + (b - a) * t
