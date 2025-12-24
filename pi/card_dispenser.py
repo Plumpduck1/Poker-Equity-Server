@@ -23,22 +23,20 @@ connection = reader.createConnection()
 # ================= CONFIG =================
 MAX_CARDS = 52
 
-# Micro-pulse motion (separation-safe)
-PULSE_ON   = 0.020     # very short nudge
-PULSE_OFF  = 0.045     # settle between nudges
+# === HUMAN-LIKE PULSE ===
+PULSE_ON  = 0.28     # ~your pinch
+DWELL_OFF = 0.50     # ~your rest (RFID sacred)
 
-# How many nudges before a forced dwell+scan
-PULSES_PER_STEP = 3
+# RFID behaviour
+SCAN_WINDOW   = 0.80
+STABLE_READS  = 2
+POLL_DELAY    = 0.01
 
-# Reader dwell + scan
-DWELL_TIME   = 0.10    # **CRITICAL**: card stationary over antenna
-SCAN_WINDOW  = 0.80    # total time allowed to detect UID
-CLEAR_TIME   = 0.35
-
-POLL_DELAY = 0.01
+# Clear detection
+CLEAR_TIME    = 0.35
 # ========================================
 
-print("🃏 Card feeder with guaranteed RFID dwell ready")
+print("🃏 Pulse + dwell feeder ready")
 
 # ------------------------------------------------
 
@@ -60,36 +58,52 @@ def read_uid():
         pass
     return None
 
-def micro_step():
-    """Move card slightly without letting the next card follow."""
-    for _ in range(PULSES_PER_STEP):
-        relay.on()
-        time.sleep(PULSE_ON)
-        relay.off()
-        time.sleep(PULSE_OFF)
+def pulse_once():
+    relay.on()
+    time.sleep(PULSE_ON)
+    relay.off()
 
 def dwell_and_scan(ignore):
-    """Hold card stationary and aggressively scan."""
-    relay.off()
-    time.sleep(DWELL_TIME)  # <-- THIS IS THE FIX
+    """
+    Motor OFF.
+    Card stationary.
+    Require stable UID before accepting.
+    """
+    time.sleep(DWELL_OFF)
 
+    seen = {}
     start = time.time()
+
     while time.time() - start < SCAN_WINDOW:
         if connect_card():
             uid = read_uid()
             if uid and uid not in ignore:
-                return uid
+                seen[uid] = seen.get(uid, 0) + 1
+                if seen[uid] >= STABLE_READS:
+                    return uid
         time.sleep(POLL_DELAY)
+
     return None
 
 def wait_until_clear():
-    last_seen = time.time()
+    """
+    Require NO UID for CLEAR_TIME continuously.
+    """
+    clear_start = None
+
     while True:
+        uid = None
         if connect_card():
-            if read_uid():
-                last_seen = time.time()
-        if time.time() - last_seen >= CLEAR_TIME:
-            return
+            uid = read_uid()
+
+        if uid is None:
+            if clear_start is None:
+                clear_start = time.time()
+            elif time.time() - clear_start >= CLEAR_TIME:
+                return
+        else:
+            clear_start = None
+
         time.sleep(POLL_DELAY)
 
 def feed_and_scan_deck():
@@ -99,15 +113,15 @@ def feed_and_scan_deck():
 
     for card_num in range(1, MAX_CARDS + 1):
         print(f"\n▶ Card {card_num}")
-        uid = None
 
         ignore = set(seen)
         if prev_uid:
             ignore.add(prev_uid)
 
-        # Ratchet card forward until RFID sees it
+        uid = None
+
         while not uid:
-            micro_step()
+            pulse_once()
             uid = dwell_and_scan(ignore)
 
         print(f"✅ UID = {uid}")
