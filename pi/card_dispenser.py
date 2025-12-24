@@ -23,9 +23,10 @@ connection = reader.createConnection()
 # ================= CONFIG =================
 MAX_CARDS = 52
 
-# === HUMAN-LIKE PULSE ===
-PULSE_ON  = 0.28     # ~your pinch
-DWELL_OFF = 0.50     # ~your rest (RFID sacred)
+# === HUMAN RHYTHM ===
+STEP_TIME = 0.60        # total pinch + rest
+PULSE_ON  = STEP_TIME / 3
+DWELL_OFF = STEP_TIME * 2 / 3
 
 # RFID behaviour
 SCAN_WINDOW   = 0.80
@@ -36,9 +37,14 @@ POLL_DELAY    = 0.01
 CLEAR_TIME    = 0.35
 # ========================================
 
-print("🃏 Pulse + dwell feeder ready")
+print("🃏 Pulse+dwell feeder with emergency stop ready")
 
 # ------------------------------------------------
+
+def stop_everything():
+    relay.off()
+    print("⛔ STOPPED")
+    raise KeyboardInterrupt
 
 def connect_card():
     try:
@@ -60,38 +66,48 @@ def read_uid():
 
 def pulse_once():
     relay.on()
-    time.sleep(PULSE_ON)
+    start = time.time()
+
+    while time.time() - start < PULSE_ON:
+        if button.is_pressed:
+            stop_everything()
+        time.sleep(0.005)
+
     relay.off()
 
 def dwell_and_scan(ignore):
-    """
-    Motor OFF.
-    Card stationary.
-    Require stable UID before accepting.
-    """
-    time.sleep(DWELL_OFF)
+    # motor OFF, sacred dwell
+    start = time.time()
+    while time.time() - start < DWELL_OFF:
+        if button.is_pressed:
+            stop_everything()
+        time.sleep(0.01)
 
     seen = {}
-    start = time.time()
+    scan_start = time.time()
 
-    while time.time() - start < SCAN_WINDOW:
+    while time.time() - scan_start < SCAN_WINDOW:
+        if button.is_pressed:
+            stop_everything()
+
         if connect_card():
             uid = read_uid()
             if uid and uid not in ignore:
                 seen[uid] = seen.get(uid, 0) + 1
                 if seen[uid] >= STABLE_READS:
                     return uid
+
         time.sleep(POLL_DELAY)
 
     return None
 
 def wait_until_clear():
-    """
-    Require NO UID for CLEAR_TIME continuously.
-    """
     clear_start = None
 
     while True:
+        if button.is_pressed:
+            stop_everything()
+
         uid = None
         if connect_card():
             uid = read_uid()
@@ -137,6 +153,9 @@ def feed_and_scan_deck():
 while True:
     print("\n⏸ Waiting for button")
     button.wait_for_press()
-    print("▶ START")
-    feed_and_scan_deck()
+    try:
+        print("▶ START")
+        feed_and_scan_deck()
+    except KeyboardInterrupt:
+        relay.off()
     button.wait_for_release()
