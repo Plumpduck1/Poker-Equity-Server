@@ -1,46 +1,35 @@
 #!/usr/bin/env python3
 from gpiozero import Button, DigitalOutputDevice
 import time
-import math
 
-# GPIO pins
 BUTTON_PIN = 22
 RELAY_PIN  = 17
 
-# ===== FEED CONFIG =====
 MAX_CARDS = 52
 
-# Pulse timing range (seconds)
-PULSE_ON_START = 0.08   # heavy stack
-PULSE_ON_END   = 0.02   # light stack
+# Aggressive timing (FAST)
+PULSE_ON_START = 0.05   # heavy stack
+PULSE_ON_END   = 0.015  # light stack
 
-# Pulse count range
-PULSES_START = 6        # heavy stack
-PULSES_END   = 1        # light stack
+PULSES_START = 5
+PULSES_END   = 1
 
-PULSE_OFF = 0.25        # OFF time between pulses
-CARD_REST = 0.7         # rest between cards
-# =======================
+PULSE_OFF = 0.06        # short settle between pulses
 
 button = Button(BUTTON_PIN, pull_up=True)
-relay  = DigitalOutputDevice(RELAY_PIN)   # ACTIVE-HIGH
+relay  = DigitalOutputDevice(RELAY_PIN)   # active-HIGH
 
 relay.off()
-print("🃏 Adaptive full-deck feeder ready")
+print("🃏 Fast auto-feed ready")
 
 def lerp(a, b, t):
-    """Linear interpolation."""
     return a + (b - a) * t
 
-def feed_card(card_num: int):
-    # Normalize 0 → 1
+def feed_card(card_num):
     t = card_num / MAX_CARDS
 
-    # Compute adaptive parameters
     pulse_on = lerp(PULSE_ON_START, PULSE_ON_END, t)
     pulses   = round(lerp(PULSES_START, PULSES_END, t))
-
-    print(f"▶ Card {card_num}: {pulses} pulses @ {pulse_on:.3f}s")
 
     for _ in range(pulses):
         relay.on()
@@ -48,13 +37,11 @@ def feed_card(card_num: int):
         relay.off()
         time.sleep(PULSE_OFF)
 
-    time.sleep(CARD_REST)
-
 def feed_full_stack():
-    print("▶ Starting deck feed")
+    start = time.time()
     for card in range(1, MAX_CARDS + 1):
         feed_card(card)
-    print("■ Deck complete")
+    print(f"■ Done in {time.time() - start:.2f}s")
 
 while True:
     button.wait_for_press()
