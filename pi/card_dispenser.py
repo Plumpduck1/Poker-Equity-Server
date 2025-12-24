@@ -7,40 +7,36 @@ RELAY_PIN  = 17
 
 MAX_CARDS = 52
 
-# Aggressive timing (FAST)
-PULSE_ON_START = 0.05   # heavy stack
-PULSE_ON_END   = 0.015  # light stack
+# ===== PULSE PROFILE (~20s total) =====
+PULSE_ON_START = 0.30   # strong shove at start (heavy stack)
+PULSE_ON_END   = 0.10   # gentle shove at end (light stack)
 
-PULSES_START = 5
-PULSES_END   = 1
-
-PULSE_OFF = 0.06        # short settle between pulses
+PULSE_OFF = 0.08        # settle time between cards
+# =====================================
 
 button = Button(BUTTON_PIN, pull_up=True)
-relay  = DigitalOutputDevice(RELAY_PIN)   # active-HIGH
+relay  = DigitalOutputDevice(RELAY_PIN)   # ACTIVE-HIGH relay
 
 relay.off()
-print("🃏 Fast auto-feed ready")
+print("🃏 52-pulse (~20s) adaptive feeder ready")
 
 def lerp(a, b, t):
     return a + (b - a) * t
 
-def feed_card(card_num):
-    t = card_num / MAX_CARDS
+def feed_full_stack():
+    start = time.time()
 
-    pulse_on = lerp(PULSE_ON_START, PULSE_ON_END, t)
-    pulses   = round(lerp(PULSES_START, PULSES_END, t))
+    for card in range(1, MAX_CARDS + 1):
+        t = card / MAX_CARDS
+        pulse_on = lerp(PULSE_ON_START, PULSE_ON_END, t)
 
-    for _ in range(pulses):
+        print(f"▶ Card {card}: ON {pulse_on:.3f}s")
+
         relay.on()
         time.sleep(pulse_on)
         relay.off()
         time.sleep(PULSE_OFF)
 
-def feed_full_stack():
-    start = time.time()
-    for card in range(1, MAX_CARDS + 1):
-        feed_card(card)
     print(f"■ Done in {time.time() - start:.2f}s")
 
 while True:
