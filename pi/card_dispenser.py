@@ -44,20 +44,28 @@ POLL_DELAY   = 0.01
 CLEAR_TIME = 0.35
 # ========================================
 
-stop_armed = False
+running = False
 
-print("🃏 Card feeder (fast + jam-safe) ready")
+print("🃏 Card feeder ready (button = toggle run/stop)")
 
 # ------------------------------------------------
 
-def emergency_stop():
-    relay.off()
-    print("⛔ EMERGENCY STOP")
-    raise KeyboardInterrupt
+def toggle_running():
+    global running
+    running = not running
+    if not running:
+        relay.off()
+        print("⛔ STOPPED")
+    else:
+        print("▶ STARTED")
 
-def check_stop():
-    if stop_armed and button.is_pressed:
-        emergency_stop()
+button.when_pressed = toggle_running
+
+# ------------------------------------------------
+
+def ensure_running():
+    if not running:
+        raise RuntimeError("Stopped")
 
 def connect_card():
     try:
@@ -81,22 +89,22 @@ def pulse(on_time):
     relay.on()
     start = time.time()
     while time.time() - start < on_time:
-        check_stop()
+        ensure_running()
         time.sleep(0.005)
     relay.off()
 
 def dwell_and_scan(ignore, dwell_time, scan_window):
-    # Motor OFF, sacred dwell
+    # motor OFF
     start = time.time()
     while time.time() - start < dwell_time:
-        check_stop()
+        ensure_running()
         time.sleep(0.01)
 
     seen = {}
     scan_start = time.time()
 
     while time.time() - scan_start < scan_window:
-        check_stop()
+        ensure_running()
 
         if connect_card():
             uid = read_uid()
@@ -113,7 +121,7 @@ def wait_until_clear():
     clear_start = None
 
     while True:
-        check_stop()
+        ensure_running()
 
         uid = None
         if connect_card():
@@ -136,6 +144,7 @@ def feed_and_scan_deck():
 
     for card_num in range(1, MAX_CARDS + 1):
         print(f"\n▶ Card {card_num}")
+        ensure_running()
 
         ignore = set(seen)
         if prev_uid:
@@ -145,17 +154,19 @@ def feed_and_scan_deck():
         jam_attempts = 0
 
         while not uid:
-            # ===== FAST NORMAL ATTEMPT =====
+            ensure_running()
+
+            # ----- NORMAL FAST ATTEMPT -----
             pulse(NORMAL_PULSE_ON)
             uid = dwell_and_scan(
                 ignore,
-                dwell_time=NORMAL_DWELL,
-                scan_window=NORMAL_SCAN_WIN
+                NORMAL_DWELL,
+                NORMAL_SCAN_WIN
             )
             if uid:
                 break
 
-            # ===== JAM FIX MODE =====
+            # ----- JAM FIX MODE -----
             jam_attempts += 1
             print("⚠️ Jam recovery")
 
@@ -165,8 +176,8 @@ def feed_and_scan_deck():
 
             uid = dwell_and_scan(
                 ignore,
-                dwell_time=JAM_DWELL,
-                scan_window=JAM_SCAN_WIN
+                JAM_DWELL,
+                JAM_SCAN_WIN
             )
 
             if jam_attempts >= MAX_JAM_ATTEMPTS and not uid:
@@ -182,20 +193,14 @@ def feed_and_scan_deck():
 
     print(f"\n■ DONE in {time.time() - start_time:.1f}s")
 
-# ================= MAIN =================
+# ================= MAIN LOOP =================
 
 while True:
-    print("\n⏸ Waiting for button")
-    button.wait_for_press()
-
-    print("▶ START")
-    stop_armed = False   # stop disabled during start press
-
     try:
-        feed_and_scan_deck()
-    except KeyboardInterrupt:
+        if running:
+            feed_and_scan_deck()
+            running = False
+            relay.off()
+    except RuntimeError:
         relay.off()
-
-    print("🟢 Stop armed")
-    button.wait_for_release()
-    stop_armed = True
+        time.sleep(0.1)
