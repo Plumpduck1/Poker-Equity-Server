@@ -5,11 +5,11 @@ from smartcard.System import readers
 from smartcard.Exceptions import NoCardException, CardConnectionException
 
 # ================= GPIO =================
-RELAY_PIN  = 17     # active-HIGH relay
+RELAY_PIN  = 17
 BUTTON_PIN = 22
 
 relay  = DigitalOutputDevice(RELAY_PIN)
-button = Button(BUTTON_PIN, pull_up=True)
+button = Button(BUTTON_PIN, pull_up=True, bounce_time=0.05)
 relay.off()
 
 # ================= NFC =================
@@ -23,49 +23,45 @@ connection = reader.createConnection()
 # ================= CONFIG =================
 MAX_CARDS = 52
 
-# ---- NORMAL (FAST) MODE ----
+# ---- NORMAL MODE (FAST) ----
 NORMAL_STEP_TIME = 0.45
 NORMAL_PULSE_ON  = NORMAL_STEP_TIME / 3
 NORMAL_DWELL     = NORMAL_STEP_TIME * 2 / 3
 NORMAL_SCAN_WIN  = 0.40
 
-# ---- JAM FIX MODE ----
-JAM_BURST_PULSES = 2
-JAM_INTER_PULSE  = 0.05
+# ---- JAM MODE (SLOW & SAFE) ----
+JAM_PULSE_ON     = NORMAL_PULSE_ON
 JAM_DWELL        = 0.90
 JAM_SCAN_WIN     = 0.80
-MAX_JAM_ATTEMPTS = 3
+JAM_RETRY_DELAY  = 1.00   # <-- big wait between bursts
 
 # ---- RFID ----
 STABLE_READS = 2
 POLL_DELAY   = 0.01
 
-# ---- CLEAR DETECTION ----
+# ---- CLEAR ----
 CLEAR_TIME = 0.35
 # ========================================
 
 running = False
+last_button = False
 
-print("🃏 Card feeder ready (button = toggle run/stop)")
-
-# ------------------------------------------------
-
-def toggle_running():
-    global running
-    running = not running
-    if not running:
-        relay.off()
-        print("⛔ STOPPED")
-    else:
-        print("▶ STARTED")
-
-button.when_pressed = toggle_running
+print("🃏 Card feeder ready (button = toggle)")
 
 # ------------------------------------------------
 
-def ensure_running():
-    if not running:
-        raise RuntimeError("Stopped")
+def poll_button():
+    """Edge-detect button and toggle running."""
+    global running, last_button
+    pressed = button.is_pressed
+    if pressed and not last_button:
+        running = not running
+        if running:
+            print("▶ STARTED")
+        else:
+            relay.off()
+            print("⛔ STOPPED")
+    last_button = pressed
 
 def connect_card():
     try:
@@ -89,22 +85,31 @@ def pulse(on_time):
     relay.on()
     start = time.time()
     while time.time() - start < on_time:
-        ensure_running()
+        poll_button()
+        if not running:
+            relay.off()
+            return False
         time.sleep(0.005)
     relay.off()
+    return True
 
 def dwell_and_scan(ignore, dwell_time, scan_window):
-    # motor OFF
+    # --- dwell (motor OFF) ---
     start = time.time()
     while time.time() - start < dwell_time:
-        ensure_running()
+        poll_button()
+        if not running:
+            return None
         time.sleep(0.01)
 
+    # --- scan ---
     seen = {}
     scan_start = time.time()
 
     while time.time() - scan_start < scan_window:
-        ensure_running()
+        poll_button()
+        if not running:
+            return None
 
         if connect_card():
             uid = read_uid()
@@ -121,7 +126,9 @@ def wait_until_clear():
     clear_start = None
 
     while True:
-        ensure_running()
+        poll_button()
+        if not running:
+            return False
 
         uid = None
         if connect_card():
@@ -131,76 +138,76 @@ def wait_until_clear():
             if clear_start is None:
                 clear_start = time.time()
             elif time.time() - clear_start >= CLEAR_TIME:
-                return
+                return True
         else:
             clear_start = None
 
         time.sleep(POLL_DELAY)
 
-def feed_and_scan_deck():
-    seen = set()
-    prev_uid = None
-    start_time = time.time()
+def feed_one_card(seen, prev_uid):
+    ignore = set(seen)
+    if prev_uid:
+        ignore.add(prev_uid)
 
-    for card_num in range(1, MAX_CARDS + 1):
-        print(f"\n▶ Card {card_num}")
-        ensure_running()
+    while running:
+        # ===== NORMAL FAST ATTEMPT =====
+        if not pulse(NORMAL_PULSE_ON):
+            return None
 
-        ignore = set(seen)
-        if prev_uid:
-            ignore.add(prev_uid)
+        uid = dwell_and_scan(ignore, NORMAL_DWELL, NORMAL_SCAN_WIN)
+        if uid:
+            return uid
 
-        uid = None
-        jam_attempts = 0
+        # ===== JAM FIX (SINGLE BURST) =====
+        print("⚠️ Jam recovery")
 
-        while not uid:
-            ensure_running()
+        if not pulse(JAM_PULSE_ON):
+            return None
 
-            # ----- NORMAL FAST ATTEMPT -----
-            pulse(NORMAL_PULSE_ON)
-            uid = dwell_and_scan(
-                ignore,
-                NORMAL_DWELL,
-                NORMAL_SCAN_WIN
-            )
-            if uid:
-                break
+        uid = dwell_and_scan(ignore, JAM_DWELL, JAM_SCAN_WIN)
+        if uid:
+            return uid
 
-            # ----- JAM FIX MODE -----
-            jam_attempts += 1
-            print("⚠️ Jam recovery")
+        # big pause before next attempt
+        start = time.time()
+        while time.time() - start < JAM_RETRY_DELAY:
+            poll_button()
+            if not running:
+                return None
+            time.sleep(0.02)
 
-            for _ in range(JAM_BURST_PULSES):
-                pulse(NORMAL_PULSE_ON)
-                time.sleep(JAM_INTER_PULSE)
-
-            uid = dwell_and_scan(
-                ignore,
-                JAM_DWELL,
-                JAM_SCAN_WIN
-            )
-
-            if jam_attempts >= MAX_JAM_ATTEMPTS and not uid:
-                print("⛔ Persistent jam — backing off")
-                time.sleep(1.0)
-                jam_attempts = 0
-
-        print(f"✅ UID = {uid}")
-        seen.add(uid)
-        prev_uid = uid
-
-        wait_until_clear()
-
-    print(f"\n■ DONE in {time.time() - start_time:.1f}s")
+    return None
 
 # ================= MAIN LOOP =================
 
+seen = set()
+prev_uid = None
+card_num = 1
+
 while True:
-    try:
-        if running:
-            feed_and_scan_deck()
-            running = False
-            relay.off()
-    except RuntimeError:
+    poll_button()
+
+    if not running:
+        time.sleep(0.05)
+        continue
+
+    print(f"\n▶ Card {card_num}")
+    uid = feed_one_card(seen, prev_uid)
+
+    if not running or not uid:
+        continue
+
+    print(f"✅ UID = {uid}")
+    seen.add(uid)
+    prev_uid = uid
+    card_num += 1
+
+    wait_until_clear()
+
+    if card_num > MAX_CARDS:
+        print("\n■ DONE")
+        running = False
         relay.off()
-        time.sleep(0.1)
+        seen.clear()
+        prev_uid = None
+        card_num = 1
