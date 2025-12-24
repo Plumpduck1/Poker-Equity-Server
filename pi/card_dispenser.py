@@ -7,18 +7,18 @@ RELAY_PIN  = 17
 
 MAX_CARDS = 52
 
-# ===== PULSE PROFILE (~20s total) =====
-PULSE_ON_START = 0.30   # strong shove at start (heavy stack)
-PULSE_ON_END   = 0.10   # gentle shove at end (light stack)
+# ===== SHORT PULSE / LONG SETTLE PROFILE =====
+PULSE_ON_START = 0.06   # short tap at start (heavy stack)
+PULSE_ON_END   = 0.02   # very short tap at end (light stack)
 
-PULSE_OFF = 0.08        # settle time between cards
-# =====================================
+PULSE_OFF = 0.32        # long settle time (critical)
+# ============================================
 
 button = Button(BUTTON_PIN, pull_up=True)
 relay  = DigitalOutputDevice(RELAY_PIN)   # ACTIVE-HIGH relay
 
 relay.off()
-print("🃏 52-pulse (~20s) adaptive feeder ready")
+print("🃏 Short-pulse / long-settle feeder ready")
 
 def lerp(a, b, t):
     return a + (b - a) * t
