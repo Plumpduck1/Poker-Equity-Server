@@ -24,18 +24,14 @@ connection = reader.createConnection()
 MAX_CARDS = 52
 
 # Motor timing (tuned for reliability)
-PULSE_ON  = 0.04      # motor ON (seconds)
-PULSE_OFF = 0.15      # settle time between nudges
+PULSE_ON  = 0.12      # motor ON (seconds)
+PULSE_OFF = 0.10      # settle time between nudges
 
 # RFID timing
 SCAN_TIMEOUT = 0.6    # seconds to wait for UID after a nudge
 CLEAR_TIME   = 0.35   # no-card time before next card
 
 POLL_DELAY = 0.01     # fast polling (~100 Hz)
-
-MIN_PULSES_PER_CARD = 3
-MAX_PULSES_PER_CARD = 8
-
 # ================================================
 
 print("🃏 Card dispenser (motor + ACR122U) ready")
@@ -100,18 +96,6 @@ def feed_and_scan_deck():
         print(f"\n▶ Card {card_num}")
 
         uid = None
-        pulses = 0
-
-        while not uid and pulses < MAX_PULSES_PER_CARD:
-            pulse_motor()
-            pulses += 1
-
-            uid = wait_for_new_uid(
-                ignore=seen | ({prev_uid} if prev_uid else set()),
-                timeout=SCAN_TIMEOUT
-            )
-
-        # If still no UID, keep nudging gently
         while not uid:
             pulse_motor()
             uid = wait_for_new_uid(
@@ -119,10 +103,9 @@ def feed_and_scan_deck():
                 timeout=SCAN_TIMEOUT
             )
 
-
-            print(f"✅ UID = {uid}")
-            seen.add(uid)
-            prev_uid = uid
+        print(f"✅ UID = {uid}")
+        seen.add(uid)
+        prev_uid = uid
 
         # Ensure card fully clears before next eject
         wait_until_clear()
