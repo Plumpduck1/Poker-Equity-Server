@@ -1,26 +1,38 @@
+#!/usr/bin/env python3
 from gpiozero import Button, DigitalOutputDevice
 import time
 
+# GPIO pins (BCM)
 BUTTON_PIN = 22
 RELAY_PIN  = 17
-RUN_DURATION = 3
 
-relay = DigitalOutputDevice(RELAY_PIN)   # ACTIVE HIGH
+# ===== TUNING PARAMETERS =====
+PULSE_ON  = 0.08    # motor ON time (seconds)
+PULSE_OFF = 0.12    # motor OFF time (seconds)
+PULSES    = 4       # pulses per card
+LOCKOUT   = 0.3     # debounce / safety delay
+# =============================
+
 button = Button(BUTTON_PIN, pull_up=True)
+relay  = DigitalOutputDevice(RELAY_PIN)  # ACTIVE-HIGH relay
 
-relay.off()   # relay OFF at start
+relay.off()  # motor OFF at startup
 
-print("Ready")
+print("🃏 Card feeder ready")
 
-def run_motor():
-    print("Motor ON")
-    relay.on()              # HIGH → relay ON
-    time.sleep(RUN_DURATION)
-    relay.off()             # LOW → relay OFF
-    print("Motor OFF")
+def feed_one_card():
+    print("▶ Feeding one card")
+    for i in range(PULSES):
+        relay.on()                 # motor ON
+        time.sleep(PULSE_ON)
+
+        relay.off()                # motor OFF
+        time.sleep(PULSE_OFF)
+
+    print("■ Card feed complete")
 
 while True:
     button.wait_for_press()
-    run_motor()
+    feed_one_card()
     button.wait_for_release()
-    time.sleep(0.3)
+    time.sleep(LOCKOUT)
