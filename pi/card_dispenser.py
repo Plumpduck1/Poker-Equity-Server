@@ -44,6 +44,8 @@ POLL_DELAY   = 0.01
 CLEAR_TIME = 0.35
 # ========================================
 
+stop_armed = False
+
 print("🃏 Card feeder (fast + jam-safe) ready")
 
 # ------------------------------------------------
@@ -53,8 +55,8 @@ def emergency_stop():
     print("⛔ EMERGENCY STOP")
     raise KeyboardInterrupt
 
-def check_button():
-    if button.is_pressed:
+def check_stop():
+    if stop_armed and button.is_pressed:
         emergency_stop()
 
 def connect_card():
@@ -79,22 +81,22 @@ def pulse(on_time):
     relay.on()
     start = time.time()
     while time.time() - start < on_time:
-        check_button()
+        check_stop()
         time.sleep(0.005)
     relay.off()
 
 def dwell_and_scan(ignore, dwell_time, scan_window):
-    # motor must be OFF here
+    # Motor OFF, sacred dwell
     start = time.time()
     while time.time() - start < dwell_time:
-        check_button()
+        check_stop()
         time.sleep(0.01)
 
     seen = {}
     scan_start = time.time()
 
     while time.time() - scan_start < scan_window:
-        check_button()
+        check_stop()
 
         if connect_card():
             uid = read_uid()
@@ -111,7 +113,7 @@ def wait_until_clear():
     clear_start = None
 
     while True:
-        check_button()
+        check_stop()
 
         uid = None
         if connect_card():
@@ -134,6 +136,7 @@ def feed_and_scan_deck():
 
     for card_num in range(1, MAX_CARDS + 1):
         print(f"\n▶ Card {card_num}")
+
         ignore = set(seen)
         if prev_uid:
             ignore.add(prev_uid)
@@ -185,10 +188,14 @@ while True:
     print("\n⏸ Waiting for button")
     button.wait_for_press()
 
+    print("▶ START")
+    stop_armed = False   # stop disabled during start press
+
     try:
-        print("▶ START")
         feed_and_scan_deck()
     except KeyboardInterrupt:
         relay.off()
 
+    print("🟢 Stop armed")
     button.wait_for_release()
+    stop_armed = True
