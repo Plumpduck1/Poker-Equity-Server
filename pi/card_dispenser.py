@@ -1,28 +1,26 @@
-#!/usr/bin/env python3
-import RPi.GPIO as GPIO
+from gpiozero import Button, DigitalOutputDevice
 import time
 
 BUTTON_PIN = 22
 RELAY_PIN  = 17
 RUN_DURATION = 3
 
-GPIO.setmode(GPIO.BCM)
+relay = DigitalOutputDevice(RELAY_PIN)   # ACTIVE HIGH
+button = Button(BUTTON_PIN, pull_up=True)
 
-GPIO.setup(RELAY_PIN, GPIO.OUT)
-GPIO.output(RELAY_PIN, GPIO.HIGH)   # relay OFF by default
+relay.off()   # relay OFF at start
 
-GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+print("Ready")
 
-print("🃏 Ready")
+def run_motor():
+    print("Motor ON")
+    relay.on()              # HIGH → relay ON
+    time.sleep(RUN_DURATION)
+    relay.off()             # LOW → relay OFF
+    print("Motor OFF")
 
-try:
-    while True:
-        if GPIO.input(BUTTON_PIN) == GPIO.LOW:
-            print("▶ Motor ON")
-            GPIO.output(RELAY_PIN, GPIO.LOW)   # relay ON
-            time.sleep(RUN_DURATION)
-            GPIO.output(RELAY_PIN, GPIO.HIGH)  # relay OFF
-            print("■ Motor OFF")
-            time.sleep(0.3)
-finally:
-    GPIO.cleanup()
+while True:
+    button.wait_for_press()
+    run_motor()
+    button.wait_for_release()
+    time.sleep(0.3)
