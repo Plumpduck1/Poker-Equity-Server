@@ -21,7 +21,7 @@ reader = rlist[0]
 connection = reader.createConnection()
 
 # ========== TIMING ==========
-MOTOR_ON_TIME   = 0.20
+MOTOR_ON_TIME   = 0.06
 REST_TIME       = 0.50
 SUCCESS_REST    = 0.50
 SCAN_WINDOW     = 0.80
